@@ -1,3 +1,5 @@
+import tensorflow as tf
+
 class PolicyNetwork(object):
     def __init__(self, env, label):
         self._sess = None
