@@ -3,7 +3,6 @@ import numpy as np
 from ppo import PPO
 from policy_network import PolicyNetwork
 import gym
-import copy
 
 
 """ Main file that initializes an environment,
