@@ -96,7 +96,7 @@ with tf.Session() as sess:
 
         for epoch in range(4):
             sample_indices = np.random.randint(low=0, high=observations.shape[0], size=64)
-            data_sample = data[sample_indices, ...]
+            data_sample = [np.take(a=ii, indices=sample_indices, axis=0) for ii in data] 
             ppo.train(observations=data_sample[:,0],
                       actions=data_sample[:,1],
                       rewards=data_sample[:,2],
