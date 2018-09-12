@@ -55,6 +55,7 @@ with tf.Session() as sess:
             rewards.append(reward)
 
             next_obs, reward, done, info = env.step(act)
+            env.render()
 
             if done:
                 v_preds_next = v_preds[1:] + [0]
@@ -65,7 +66,7 @@ with tf.Session() as sess:
             else:
                 obs = next_obs
 
-
+        print (sum(rewards))
         if sum(rewards) >= 195:
             success_num += 1
             if success_num >= 100:
