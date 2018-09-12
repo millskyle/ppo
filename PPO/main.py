@@ -41,7 +41,7 @@ with tf.Session() as sess:
             run_policy_steps += 1
             obs = np.stack([obs]).astype(dtype=np.float32)
 
-            action, v_pred = policy.act(obs=obs, stochastic=True)
+            action, v_pred = policy.act(observation=obs, stochastic=True)
             act = np.asscalar(act)
             v_pred = np.asscalar(v_pred)
             observations.append(obs)
