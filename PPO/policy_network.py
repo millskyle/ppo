@@ -1,12 +1,12 @@
 import tensorflow as tf
 
 class PolicyNetwork(object):
-    def __init__(self, env, label):
+    def __init__(self, env, label, temperature=0.1):
         self._sess = None
         self.o_space = env.observation_space
         self.a_space = env.action_space
 
-        with tf.variable_scope(name):
+        with tf.variable_scope(label):
             self.observation = tf.placeholder(dtype=tf.float32,
                                               shape=[None] + list(self.o_space.shape),
                                               name='obsservation')
@@ -38,7 +38,7 @@ class PolicyNetwork(object):
 
             self.action_stochastic = tf.multinomial(tf.log(self.a_prob), num_samples=1)
             self.action_stochastic = tf.reshape(self.action_stochastic, shape=[-1])
-            self.action_deterministic = tf.argmax(self.a_probs, axis=1)
+            self.action_deterministic = tf.argmax(self.a_prob, axis=1)
 
             self.scope = tf.get_variable_scope().name
 
@@ -68,4 +68,4 @@ class PolicyNetwork(object):
             gk = tf.GraphKeys.TRAINABLE_VARIABLES
         else:
             gk = tf.GraphKeys.GLOBAL_VARIABLES
-        return tf.get_collection(gktf.GraphKeys.GLOBAL_VARIABLES, self.scope)
+        return tf.get_collection(gk, self.scope)

@@ -24,7 +24,7 @@ class PPO(object):
                                                   self.policy.get_variables(trainable_only=True)):
                 self.assign_ops.append(tf.assign(old_variable, new_variable))
 
-        with variable_scope('training_input'):
+        with tf.variable_scope('training_input'):
             self.actions = tf.placeholder(dtype=tf.int32, shape=[None], name='actions')
             self.rewards = tf.placeholder(dtype=tf.float32, shape=[None], name='reward')
             self.v_preds_next = tf.placeholder(dtype=tf.float32, shape=[None], name='value_pred_next')
