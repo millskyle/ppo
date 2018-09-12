@@ -79,7 +79,7 @@ class PPO(object):
 
         with tf.variable_scope('optimizer'):
             optimizer = tf.train.AdamOptimizer(learning_rate=1e-4, epsilon=1e-5)
-            train_op = optimizer.minimize(loss, var_list=self.policy.get_variables(trainable_only=True))
+            self.train_op = optimizer.minimize(loss, var_list=self.policy.get_variables(trainable_only=True))
 
     @property
     def sess(self):
@@ -95,8 +95,8 @@ class PPO(object):
 
     def train(self, observations, actions, rewards, v_preds_next, advantage_estimate):
         self.sess.run(self.train_op, feed_dict={
-                                                    self.policy.observation: observation,
-                                                    self.old_policy.observation: observation,
+                                                    self.policy.observation: observations,
+                                                    self.old_policy.observation: observations,
                                                     self.actions: actions,
                                                     self.rewards: rewards,
                                                     self.v_preds_next: v_preds_next,
