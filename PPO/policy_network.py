@@ -1,4 +1,6 @@
 import tensorflow as tf
+import logging
+import sys
 
 class PolicyNetwork(object):
     def __init__(self, env, label, temperature=0.1):
@@ -46,6 +48,7 @@ class PolicyNetwork(object):
     def sess(self):
         if self._sess is None:
             logging.error("You must attach a session using the attach_session(sess) method.")
+            sys.exit(1)
         else:
             return self._sess
 

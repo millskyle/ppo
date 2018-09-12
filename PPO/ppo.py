@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import logging
+import sys
 
 
 
@@ -83,6 +84,7 @@ class PPO(object):
     def sess(self):
         if self._sess is None:
             logging.error("You must attach a session using the attach_session(sess) method.")
+            sys.exit(1)
         else:
             return self._sess
 
