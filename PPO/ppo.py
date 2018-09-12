@@ -89,7 +89,7 @@ class PPO(object):
             return self._sess
 
     def attach_session(self, sess):
-        self._sess = session
+        self._sess = sess
 
 
     def train(self, observations, actions, rewards, v_preds_next, advantage_estimate):

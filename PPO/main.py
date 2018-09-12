@@ -25,6 +25,11 @@ saver = tf.train.Saver()
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
+
+    policy.attach_session(sess)
+    old_policy.attach_session(sess)
+    ppo.attach_session(sess)
+
     obs = env.reset()
     reward = 0
     success_num = 0
