@@ -46,7 +46,7 @@ class PPO(object):
             L_clip = tf.reduce_mean(
                              tf.minimum(
                                   tf.multiply(ratio, self.advantage_estimate),
-                                  tf.multiply(ratio_clipped, tf.advantage_estimate)
+                                  tf.multiply(ratio_clipped, self.advantage_estimate)
                              )
                         )
 
@@ -63,7 +63,7 @@ class PPO(object):
         with tf.variable_scope('L/S'):
             L_S = -tf.reduce_mean(
                             tf.reduce_sum(
-                                self.policy.a_prob*tf.log(tf.clip_by_value(self.policy.act_probs, 1e-10,1.0)),
+                                self.policy.a_prob*tf.log(tf.clip_by_value(self.policy.a_prob, 1e-10,1.0)),
                                 axis=1
                             ),
                         axis=0
