@@ -33,7 +33,7 @@ class PPO(object):
             self.advantage_estimate = tf.placeholder(dtype=tf.float32, shape=[None], name='advantage_estimate')
 
         act_probs = self.policy.a_prob
-        act_probs_old = self.policy.a_prob
+        act_probs_old = self.old_policy.a_prob
 
         act_probs = act_probs * tf.one_hot(indices=self.actions, depth=act_probs.shape[1])
         act_probs = tf.reduce_sum(act_probs, axis=1)
@@ -43,6 +43,7 @@ class PPO(object):
 
 
         with tf.variable_scope('L/CLIP'):
+            #ratio = tf.exp(tf.log(act_probs) - tf.log(act_probs_old))
             ratio = tf.divide(act_probs, act_probs_old)
             ratio_clipped = tf.clip_by_value(ratio, clip_value_min=1.-epsilon, clip_value_max=1.+epsilon)
             L_clip = tf.reduce_mean(
@@ -58,13 +59,13 @@ class PPO(object):
             L_vf = tf.reduce_mean(
                             tf.squared_difference(
                                 self.rewards + self.gamma * self.v_preds_next,
-                                self.policy.v_preds
+                                self.policy.v_preds  # V_theta(s_t)  (in paper)
                             )
                      )
 
         with tf.variable_scope('L/S'):
-            L_S = -tf.reduce_mean(
-                            tf.reduce_sum(
+            L_S = tf.reduce_mean(
+                            -tf.reduce_sum(
                                 self.policy.a_prob*tf.log(tf.clip_by_value(self.policy.a_prob, 1e-10,1.0)),
                                 axis=1
                             ),
@@ -78,7 +79,7 @@ class PPO(object):
             loss = -loss
 
         with tf.variable_scope('optimizer'):
-            optimizer = tf.train.AdamOptimizer(learning_rate=1e-4, epsilon=1e-5)
+            optimizer = tf.train.AdamOptimizer(learning_rate=1e-5, epsilon=1e-5)
             self.train_op = optimizer.minimize(loss, var_list=self.policy.get_variables(trainable_only=True))
 
     @property
@@ -94,6 +95,7 @@ class PPO(object):
 
 
     def train(self, observations, actions, rewards, v_preds_next, advantage_estimate):
+        logging.info("Updating weights")
         self.sess.run(self.train_op, feed_dict={
                                                     self.policy.observation: observations,
                                                     self.old_policy.observation: observations,

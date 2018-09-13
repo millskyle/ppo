@@ -2,41 +2,55 @@ import tensorflow as tf
 import logging
 import sys
 
-class PolicyNetwork(object):
+class DenseNN(object):
+    def __init__(self, in_, units, activations, scope):
+        self._in = in_
+        assert len(units)==len(activations), "Each unit must have a matching activation."
+        self._units = units
+        self._activations = activations
+        self.scope = scope
+
+    @property
+    def output(self):
+        out_ = self._in
+        with tf.variable_scope(self.scope):
+            for i in range(len(self._units)):
+                logging.info("Building dense layer {} with {} units and {} activation.".format('layer_{0}'.format(i), self._units[i], self._activations[i]))
+                out_ = tf.layers.dense(inputs=out_,
+                                      units=self._units[i],
+                                      activation=self._activations[i],
+                                      name='layer_{0}'.format(i))
+            return out_
+
+    def get_variables(self):
+        return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, self.scope)
+
+
+
+
+class NeuralNet(object):
     def __init__(self, env, label, temperature=0.1):
         self._sess = None
-        self.o_space = env.observation_space
-        self.a_space = env.action_space
+
 
         with tf.variable_scope(label):
             self.observation = tf.placeholder(dtype=tf.float32,
-                                              shape=[None] + list(self.o_space.shape),
-                                              name='obsservation')
-            with tf.variable_scope('policy_network'):
-                pi = tf.layers.dense(inputs=self.observation,
-                                     units=32,
-                                     activation=tf.nn.tanh)
-                pi = tf.layers.dense(inputs=pi,
-                                     units=32,
-                                     activation=tf.nn.tanh)
-                pi = tf.layers.dense(inputs=pi,
-                                     units=32,
-                                     activation=tf.nn.tanh)
-                pi = tf.layers.dense(inputs=pi,
-                                     units=self.a_space.n)
-                self.a_prob = tf.layers.dense(inputs=tf.divide(pi, temperature),
-                                              units=self.a_space.n,
-                                              activation=tf.nn.softmax)
-            with tf.variable_scope('value_net'):
-                v = tf.layers.dense(inputs=self.observation,
-                                    units=32,
-                                    activation=tf.nn.tanh)
-                v = tf.layers.dense(inputs=v,
-                                    units=32,
-                                    activation=tf.nn.tanh)
-                self.v_preds = tf.layers.dense(inputs=v,
-                                    units=1,
-                                    activation=None)
+                                              shape=[None] + list(env.observation_space.shape),
+                                              name='observation')
+
+            PI = DenseNN(in_=self.observation,
+                         units=[32,32,32,env.action_space.n],
+                         activations=[tf.nn.tanh,]*3 + [tf.nn.softmax],
+                         scope='policy'
+
+                         )
+            self.a_prob = PI.output
+
+            V = DenseNN(in_=self.observation,
+                        units=[32,32,1],
+                        activations=[tf.nn.tanh,]*2 + [None],
+                        scope='value')
+            self.v_preds = V.output
 
             self.action_stochastic = tf.multinomial(tf.log(self.a_prob), num_samples=1)
             self.action_stochastic = tf.reshape(self.action_stochastic, shape=[-1])
