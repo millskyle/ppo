@@ -4,11 +4,16 @@ import logging
 import sys
 import copy
 
+class Algorithm(object):
 
 
+    def make_input_placeholders(self):
+        self.actions = tf.placeholder(dtype=tf.int32, shape=[None], name='actions')
+        self.rewards = tf.placeholder(dtype=tf.float32, shape=[None], name='reward')
+        self.v_preds_next = tf.placeholder(dtype=tf.float32, shape=[None], name='value_pred_next')
+        self.advantage_estimate = tf.placeholder(dtype=tf.float32, shape=[None], name='advantage_estimate')
 
 
-class PPO(object):
     def __init__(self, policy, old_policy, gamma=0.95, epsilon=0.2, c_1=1, c_2=0.01):
         """ epsilon :: clip_value """
         self.policy = policy
@@ -18,19 +23,9 @@ class PPO(object):
 
         self._sess = None
 
+        self.make_copy_nn_ops()  #make ops to sync old_policy to policy\
+        self.make_input_placeholders() #make placeholders
 
-        with tf.variable_scope('assign_ops'):
-            """Set up ops to assign the 'new' value to the 'old' variable"""
-            self.assign_ops = []
-            for old_variable, new_variable in zip(self.old_policy.get_variables(trainable_only=True),
-                                                  self.policy.get_variables(trainable_only=True)):
-                self.assign_ops.append(tf.assign(old_variable, new_variable))
-
-        with tf.variable_scope('training_input'):
-            self.actions = tf.placeholder(dtype=tf.int32, shape=[None], name='actions')
-            self.rewards = tf.placeholder(dtype=tf.float32, shape=[None], name='reward')
-            self.v_preds_next = tf.placeholder(dtype=tf.float32, shape=[None], name='value_pred_next')
-            self.advantage_estimate = tf.placeholder(dtype=tf.float32, shape=[None], name='advantage_estimate')
 
         act_probs = self.policy.a_prob
         act_probs_old = self.old_policy.a_prob
@@ -79,7 +74,7 @@ class PPO(object):
             loss = -loss
 
         with tf.variable_scope('optimizer'):
-            optimizer = tf.train.AdamOptimizer(learning_rate=1e-5, epsilon=1e-5)
+            optimizer = tf.train.AdamOptimizer(learning_rate=1e-4, epsilon=1e-5)
             self.train_op = optimizer.minimize(loss, var_list=self.policy.get_variables(trainable_only=True))
 
     @property
@@ -104,6 +99,16 @@ class PPO(object):
                                                     self.v_preds_next: v_preds_next,
                                                     self.advantage_estimate: advantage_estimate
                                                 })
+
+    def make_copy_nn_ops(self):
+        with tf.variable_scope('assign_ops'):
+            """Set up ops to assign the 'new' value to the 'old' variable"""
+            self.assign_ops = []
+            for old_variable, new_variable in zip(self.old_policy.get_variables(trainable_only=True),
+                                                  self.policy.get_variables(trainable_only=True)):
+                self.assign_ops.append(tf.assign(old_variable, new_variable))
+            return self.assign_ops
+
     def assign_new_to_old(self):
         return self.sess.run(self.assign_ops)
 

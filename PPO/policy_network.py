@@ -3,6 +3,8 @@ import logging
 import sys
 
 class DenseNN(object):
+    """ Creates a dense, fully-connected neural net of len(units) layers of
+        width units. Output node accessible through  """
     def __init__(self, in_, units, activations, scope):
         self._in = in_
         assert len(units)==len(activations), "Each unit must have a matching activation."
@@ -10,8 +12,6 @@ class DenseNN(object):
         self._activations = activations
         self.scope = scope
 
-    @property
-    def output(self):
         out_ = self._in
         with tf.variable_scope(self.scope):
             for i in range(len(self._units)):
@@ -20,7 +20,10 @@ class DenseNN(object):
                                       units=self._units[i],
                                       activation=self._activations[i],
                                       name='layer_{0}'.format(i))
-            return out_
+            self._output = out_
+    @property
+    def output(self):
+        return self._output
 
     def get_variables(self):
         return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, self.scope)
@@ -29,7 +32,7 @@ class DenseNN(object):
 
 
 class NeuralNet(object):
-    def __init__(self, env, label, temperature=0.1):
+    def __init__(self, env, label):
         self._sess = None
 
 
