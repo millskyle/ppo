@@ -3,6 +3,7 @@ import numpy as np
 from ppo import Algorithm
 from policy_network import NeuralNet
 import gym
+import cleangym
 import roboschool
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -23,12 +24,10 @@ CHKPT_PATH = './model/'
 RESTORE = True
 
 
-env = gym.make('Acrobot-v1')
+#env = gym.make('Acrobot-v1')
+env = gym.make('Stirling-v0')
 #env = gym.make('CartPole-v0')
 #env = gym.make('RoboschoolPong-v1')
-env.seed(0)
-env._max_episode_steps = 200.
-
 
 if __name__=='__main__':
     obs_space = env.observation_space
@@ -36,7 +35,7 @@ if __name__=='__main__':
     policy = NeuralNet(env=env, label='policy')
     old_policy = NeuralNet(env=env, label='old_policy')
 
-    ppo = Algorithm(policy=policy, old_policy=old_policy, gamma=0.95, epsilon=0.2, c_1=1.0, c_2=0.1)
+    ppo = Algorithm(policy=policy, old_policy=old_policy, gamma=0.95, epsilon=0.2, c_1=1.0, c_2=0.01)
 
     saver = tf.train.Saver()
 
@@ -77,7 +76,10 @@ if __name__=='__main__':
                 rewards.append(reward)
 
                 next_obs, reward, done, info = env.step(act)
-                if iteration%250==0:
+                if run_policy_steps > env._max_episode_steps:
+                    done = True
+
+                if iteration%1000==0:
                     env.render()
                     saver.save(sess, CHKPT_PATH + 'model.chkpt')
 
@@ -90,8 +92,7 @@ if __name__=='__main__':
 
                 else:
                     obs = next_obs
-
-            print (sum(rewards))
+            logging.info("EPISODE {0:5d}".format(iteration))
             if sum(rewards) >= SOLVED_THRESHOLD:
                 success_num += 1
                 if success_num >= SOLVED_THRESHOLD_CONSECUTIVE_ITERATIONS:
@@ -114,18 +115,16 @@ if __name__=='__main__':
 
             ppo.assign_new_to_old()
 
-
-            if iteration > 0 and iteration % 10 == 0:
-
+            if iteration > 0 and iteration % 100 == 0:
 
                 data = [observations, actions, rewards, v_preds_next, advantage_estimate]
 
                 for batch in range(10):
-                    sample_indices = np.random.randint(low=0, high=observations.shape[0], size=16)
+                    sample_indices = np.random.randint(low=0, high=observations.shape[0], size=256)
                     data_sample = []
-                    for i_ in sample_indices:
-                        data_sample.append([observations[i_], actions[i_], rewards[i_], v_preds_next[i_], advantage_estimate[i_]])
-                    #data_sample = [np.take(a=ii, indices=sample_indices, axis=0) for ii in data]
+                    #for i_ in sample_indices:
+                    #    data_sample.append([observations[i_], actions[i_], rewards[i_], v_preds_next[i_], advantage_estimate[i_]])
+                    data_sample = [np.take(a=ii, indices=sample_indices, axis=0) for ii in data]
 
                     ppo.train(observations=data_sample[0],
                               actions=data_sample[1],

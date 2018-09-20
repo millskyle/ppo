@@ -14,7 +14,7 @@ class Algorithm(object):
         self.advantage_estimate = tf.placeholder(dtype=tf.float32, shape=[None], name='advantage_estimate')
 
 
-    def __init__(self, policy, old_policy, gamma=0.95, epsilon=0.2, c_1=1, c_2=0.01):
+    def __init__(self, policy, old_policy, gamma=0.95, epsilon=0.2, c_1=1., c_2=0.01):
         """ epsilon :: clip_value """
         self.policy = policy
         self.old_policy = old_policy
@@ -68,13 +68,14 @@ class Algorithm(object):
                        )
 
         with tf.variable_scope('L'):
+
             loss = L_clip - c_1*L_vf + c_2*L_S
             #The paper says to MAXIMIZE this loss, so let's minimize the
             #negative instead
             loss = -loss
 
         with tf.variable_scope('optimizer'):
-            optimizer = tf.train.AdamOptimizer(learning_rate=1e-4, epsilon=1e-5)
+            optimizer = tf.train.AdamOptimizer(learning_rate=1e-5, epsilon=1e-5)
             self.train_op = optimizer.minimize(loss, var_list=self.policy.get_variables(trainable_only=True))
 
     @property
@@ -90,7 +91,7 @@ class Algorithm(object):
 
 
     def train(self, observations, actions, rewards, v_preds_next, advantage_estimate):
-        logging.info("Updating weights")
+        logging.debug("Updating weights")
         self.sess.run(self.train_op, feed_dict={
                                                     self.policy.observation: observations,
                                                     self.old_policy.observation: observations,
