@@ -2,7 +2,7 @@ import os
 
 def get_log_path(logdir, prefix='run_'):
     try:
-        os.mkdirs(logdir)
+        os.mkdir(logdir)
     except:
         pass
     nums = [ int(s.replace(prefix, '')) for s in os.listdir(logdir) ]
