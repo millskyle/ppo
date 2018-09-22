@@ -15,7 +15,8 @@ class DenseNN(object):
         out_ = self._in
         with tf.variable_scope(self.scope):
             for i in range(len(self._units)):
-                logging.info("Building dense layer {} with {} units and {} activation.".format('layer_{0}'.format(i), self._units[i], self._activations[i]))
+                layer_name='layer_{0}'.format(i)
+                logging.info("Building dense layer {} with {} units and {} activation.".format(layer_name, self._units[i], self._activations[i]))
                 out_ = tf.layers.dense(inputs=out_,
                                       units=self._units[i],
                                       activation=self._activations[i],
@@ -42,15 +43,14 @@ class NeuralNet(object):
                                               name='observation')
 
             PI = DenseNN(in_=self.observation,
-                         units=[32,32,32,env.action_space.n],
-                         activations=[tf.nn.tanh,]*3 + [tf.nn.softmax],
+                         units=[64,64,env.action_space.n],
+                         activations=[tf.nn.tanh,]*2 + [tf.nn.softmax],
                          scope='policy'
-
                          )
             self.a_prob = PI.output
 
             V = DenseNN(in_=self.observation,
-                        units=[32,32,1],
+                        units=[64,64,1],
                         activations=[tf.nn.tanh,]*2 + [None],
                         scope='value')
             self.v_preds = V.output
