@@ -23,8 +23,9 @@ CHKPT_PATH = './model/'
 
 RESTORE = True
 CURIOSITY = True
-ETA = 1.
-
+ETA = 1e-9
+LAMBDA=1e-9
+BETA = 1e-9
 
 #env = gym.make('MountainCar-v0')
 #env = gym.make('Stirling-v0')
@@ -39,7 +40,8 @@ if __name__=='__main__':
 
     ppo = Algorithm(policy=policy, old_policy=old_policy, gamma=0.95,
                     epsilon=0.2, c_1=0.1, c_2=1.0,
-                    use_curiosity=CURIOSITY, eta=ETA)
+                    use_curiosity=CURIOSITY, eta=ETA,
+                    llambda=LAMBDA, beta=BETA)
 
     saver = tf.train.Saver()
 
@@ -81,8 +83,9 @@ if __name__=='__main__':
                 actions.append(action)
                 v_preds.append(v_pred)
                 rewards_extrinsic.append(reward_E)
-
                 next_obs, reward_E, done, info = env.step(action)
+
+
 
                 observations_tp1.append(next_obs)
 
@@ -148,7 +151,7 @@ if __name__=='__main__':
                 data = [observations, actions, rewards, v_preds_next, advantage_estimate, observations_tp1]
 
                 for batch in range(4):
-                    sample_indices = np.random.randint(low=0, high=observations.shape[0], size=128)
+                    sample_indices = np.random.randint(low=0, high=observations.shape[0], size=32)
                     data_sample = [np.take(a=ii, indices=sample_indices, axis=0) for ii in data]
 
                     ppo.train(observations=data_sample[0],

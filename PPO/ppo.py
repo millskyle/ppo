@@ -7,6 +7,11 @@ from utility import get_log_path
 import os
 from policy_network import DenseNN
 
+def softmax(x):
+    """Compute softmax values for each sets of scores in x."""
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum()
+
 class Algorithm(object):
 
 
@@ -18,7 +23,7 @@ class Algorithm(object):
 
 
     def __init__(self, policy, old_policy, gamma=0.95, epsilon=0.2, c_1=1., c_2=0.01,
-                 use_curiosity=False, eta=0.1):
+                 use_curiosity=False, eta=0.1, llambda=0.1, beta=0.2):
         """ epsilon :: clip_value """
         self.policy = policy
         self.old_policy = old_policy
@@ -44,6 +49,8 @@ class Algorithm(object):
         act_probs_old = tf.reduce_sum(act_probs_old, axis=1)
 
 
+
+
         ### Curiosity
         if self._use_curiosity:
             with tf.variable_scope('curiosity'):
@@ -57,36 +64,36 @@ class Algorithm(object):
                 #encode the observation. This could be any type of neural net.
                 #if the observation is an image, probably want convolutional
                 inverse_nn_t = DenseNN(in_=s_t,
-                                     units=[32,64,128],
+                                     units=[16,16,32],
                                      activations=[tf.nn.selu,]*3,
                                      scope='curiosity_inverse')
                 #encode the observation at time t+1 with the same neural net (and
                 #same weights)
                 inverse_nn_tp1 = DenseNN(in_=s_tp1,
-                                          units=[32,64,128],
+                                          units=[16,16,32],
                                           activations=[tf.nn.selu,]*3,
                                           scope='curiosity_inverse')
 
                 joined = tf.concat((inverse_nn_t.output, inverse_nn_tp1.output), axis=1)
 
                 inverse_nn = DenseNN(in_=joined,
-                                     units=[256,a_t.shape[1]],
+                                     units=[32,a_t.shape[1]],
                                      activations=[tf.nn.selu,None],
                                      scope='curiosity_inverse_enc')
-                a_pred = inverse_nn.output
-                inp_forward = tf.concat((a_pred, s_t), axis=1)
+                self._curiosity_a_pred = inverse_nn.output
+                inp_forward = tf.concat((self._curiosity_a_pred, s_t), axis=1)
                 forward_nn = DenseNN(in_=inp_forward,
-                                     units=[256, s_t.shape[1]],
-                                     activations=[tf.nn.selu, None],
+                                     units=[64,64, inverse_nn_tp1.output.shape[1]],
+                                     activations=[tf.nn.selu,]*2 +[None],
                                      scope='curiosity_forward'
                                      )
         if self._use_curiosity:
             #we want to train the inverse network to predict the correct action:
             with tf.variable_scope('L/Inverse'):
-                L_I = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=a_pred,
+                L_I = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=self._curiosity_a_pred,
                                                              labels=a_t))
             with tf.variable_scope('L/Forward'):
-                L_F = tf.reduce_mean(tf.nn.l2_loss(forward_nn.output-s_tp1))
+                L_F = tf.reduce_mean(tf.nn.l2_loss(forward_nn.output-inverse_nn_tp1.output))
 
             self.reward_intrinsic = eta * L_F
 
@@ -119,14 +126,15 @@ class Algorithm(object):
                        )
 
         with tf.variable_scope('Loss'):
-            tf.summary.scalar('L_clip', L_clip)
+            tf.summary.scalar('L_clip', -L_clip)
             tf.summary.scalar('c_1*L_vf', c_1*L_vf)
-            tf.summary.scalar('c_2*L_S', c_2*L_S)
-            loss = -(L_clip - c_1*L_vf + c_2*L_S)
+            tf.summary.scalar('c_2*L_S', -c_2*L_S)
+            #loss = (L_clip - c_1*L_vf + c_2*L_S)
             #The paper says to MAXIMIZE this loss, so let's minimize the
             #negative instead
+            loss = -L_clip + c_1*L_vf - c_2*L_S
             if self._use_curiosity:
-                loss = loss + L_I + L_F
+                loss = llambda*loss + (1-beta)*L_I + beta*L_F
                 tf.summary.scalar('L_inverse', L_I)
                 tf.summary.scalar('L_forward', L_F)
 
@@ -156,14 +164,15 @@ class Algorithm(object):
         self._summary_writer = tf.summary.FileWriter(get_log_path('./logs','run_'),
                                                      self._sess.graph, flush_secs=5)
 
-    def evaluate_intrinsic_reward(self, obs, obs_tp1  ):
+    def evaluate_intrinsic_reward(self, obs, obs_tp1):
         obs_d = np.array(obs).reshape(1,-1)
         obs_tp1_d = np.array(obs).reshape(1,-1)
         r_I = self.sess.run(self.reward_intrinsic, feed_dict={self.policy.observation:obs_d,
                                                               self.observation_tp1:obs_tp1_d})
         return r_I
 
-    def train(self, observations, actions, rewards, v_preds_next, advantage_estimate, observations_tp1):
+    def train(self, observations, actions, rewards, v_preds_next, advantage_estimate,
+              observations_tp1, verbose=True):
         logging.debug("Updating weights")
 
         feed_dict = {
@@ -180,6 +189,11 @@ class Algorithm(object):
         #run the training op, get summaries
         _summary, _ = self.sess.run([self._summaries, self.train_op], feed_dict=feed_dict)
 
+
+        if verbose:
+            pred, taken = self.sess.run([self._curiosity_a_pred, self.policy.a_prob], feed_dict=feed_dict)
+            logging.info("A_pred:" + str(softmax(pred[0])))
+            logging.info("A_taken:" + str(softmax(taken[0])))
 
         self.__weight_update_counter += 1
         if self.__weight_update_counter%10==0:
