@@ -21,14 +21,16 @@ SOLVED_THRESHOLD_CONSECUTIVE_ITERATIONS = 100
 
 CHKPT_PATH = './model/'
 
+C_1 = 0.1
+C_2 = 0.001
 RESTORE = True
 CURIOSITY = True
-ETA = 1e-5
-LAMBDA=1e-5
-BETA = 2e-5
+ETA = 1e-1
+LAMBDA=1e-1
+BETA = 2e-1
 
-env = gym.make('MountainCar-v0')
-#env = gym.make('Stirling-v0')
+#env = gym.make('MountainCar-v0')
+env = gym.make('Stirling-v0')
 #env = gym.make('CartPole-v0')
 #env = gym.make('RoboschoolPong-v1')
 
@@ -39,7 +41,7 @@ if __name__=='__main__':
     old_policy = NeuralNet(env=env, label='old_policy')
 
     ppo = Algorithm(policy=policy, old_policy=old_policy, gamma=0.95,
-                    epsilon=0.2, c_1=0.1, c_2=100.0,
+                    epsilon=0.2, c_1=C_1, c_2=C_2,
                     use_curiosity=CURIOSITY, eta=ETA,
                     llambda=LAMBDA, beta=BETA)
 
@@ -148,8 +150,8 @@ if __name__=='__main__':
 
                 data = [observations, actions, rewards, v_preds_next, advantage_estimate, observations_tp1]
 
-                for batch in range(4):
-                    sample_indices = np.random.randint(low=0, high=observations.shape[0], size=32)
+                for batch in range(1):
+                    sample_indices = np.random.randint(low=0, high=observations.shape[0], size=4)
                     data_sample = [np.take(a=ii, indices=sample_indices, axis=0) for ii in data]
 
                     ppo.train(observations=data_sample[0],

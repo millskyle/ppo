@@ -134,20 +134,25 @@ class Algorithm(object):
             #negative instead
             loss = -L_clip + c_1*L_vf - c_2*L_S
             if self._use_curiosity:
-                loss = llambda*loss + (1-beta)*L_I + beta*L_F
+                loss = loss + (1-beta)*L_I + beta*L_F
                 tf.summary.scalar('L_inverse', (1-beta)*L_I )
                 tf.summary.scalar('L_forward', beta*L_F)
 
+        vars_to_optimize = []
         for var in self.policy.get_variables(trainable_only=True):
             tf.summary.histogram(var.name, var)
+            vars_to_optimize.append(var)
 
         if self._use_curiosity:
             for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='curiosity'):
                 tf.summary.histogram(var.name, var)
+                vars_to_optimize.append(var)
 
         with tf.variable_scope('optimizer'):
             optimizer = tf.train.AdamOptimizer(learning_rate=1e-4, epsilon=1e-5)
-            self.train_op = optimizer.minimize(loss, var_list=self.policy.get_variables(trainable_only=True))
+            self.train_op = optimizer.minimize(loss, var_list=vars_to_optimize)
+            #icm_optimizer = tf.train.AdamOptimizer(learning_rate=1e-4, epsilon=1e-5)
+            #self.icm_train_op = icm_optimizer.minimize()
         self._summaries = tf.summary.merge_all()
 
 
