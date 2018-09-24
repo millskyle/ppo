@@ -126,17 +126,17 @@ class Algorithm(object):
                        )
 
         with tf.variable_scope('Loss'):
-            tf.summary.scalar('L_clip', -L_clip)
-            tf.summary.scalar('c_1*L_vf', c_1*L_vf)
-            tf.summary.scalar('c_2*L_S', -c_2*L_S)
+            tf.summary.scalar('L_clip', -L_clip*llambda)
+            tf.summary.scalar('c_1*L_vf', c_1*L_vf*llambda)
+            tf.summary.scalar('c_2*L_S', -c_2*L_S*llambda)
             #loss = (L_clip - c_1*L_vf + c_2*L_S)
             #The paper says to MAXIMIZE this loss, so let's minimize the
             #negative instead
             loss = -L_clip + c_1*L_vf - c_2*L_S
             if self._use_curiosity:
                 loss = llambda*loss + (1-beta)*L_I + beta*L_F
-                tf.summary.scalar('L_inverse', L_I)
-                tf.summary.scalar('L_forward', L_F)
+                tf.summary.scalar('L_inverse', (1-beta)*L_I )
+                tf.summary.scalar('L_forward', beta*L_F)
 
         for var in self.policy.get_variables(trainable_only=True):
             tf.summary.histogram(var.name, var)

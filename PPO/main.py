@@ -23,13 +23,13 @@ CHKPT_PATH = './model/'
 
 RESTORE = True
 CURIOSITY = True
-ETA = 1e-9
-LAMBDA=1e-9
-BETA = 1e-9
+ETA = 1e-5
+LAMBDA=1e-5
+BETA = 2e-5
 
-#env = gym.make('MountainCar-v0')
+env = gym.make('MountainCar-v0')
 #env = gym.make('Stirling-v0')
-env = gym.make('CartPole-v0')
+#env = gym.make('CartPole-v0')
 #env = gym.make('RoboschoolPong-v1')
 
 if __name__=='__main__':
@@ -39,7 +39,7 @@ if __name__=='__main__':
     old_policy = NeuralNet(env=env, label='old_policy')
 
     ppo = Algorithm(policy=policy, old_policy=old_policy, gamma=0.95,
-                    epsilon=0.2, c_1=0.1, c_2=1.0,
+                    epsilon=0.2, c_1=0.1, c_2=100.0,
                     use_curiosity=CURIOSITY, eta=ETA,
                     llambda=LAMBDA, beta=BETA)
 
@@ -84,8 +84,6 @@ if __name__=='__main__':
                 v_preds.append(v_pred)
                 rewards_extrinsic.append(reward_E)
                 next_obs, reward_E, done, info = env.step(action)
-
-
 
                 observations_tp1.append(next_obs)
 
