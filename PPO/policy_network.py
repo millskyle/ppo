@@ -5,7 +5,7 @@ import sys
 class DenseNN(object):
     """ Creates a dense, fully-connected neural net of len(units) layers of
         width units. Output node accessible through  """
-    def __init__(self, in_, units, activations, scope):
+    def __init__(self, in_, units, activations, scope, reuse=tf.AUTO_REUSE):
         self._in = in_
         assert len(units)==len(activations), "Each unit must have a matching activation."
         self._units = units
@@ -13,7 +13,7 @@ class DenseNN(object):
         self.scope = scope
 
         out_ = self._in
-        with tf.variable_scope(self.scope):
+        with tf.variable_scope(self.scope, reuse=reuse):
             for i in range(len(self._units)):
                 layer_name='layer_{0}'.format(i)
                 logging.info("Building dense layer {} with {} units and {} activation.".format(layer_name, self._units[i], self._activations[i]))
