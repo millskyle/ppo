@@ -5,7 +5,7 @@ import logging
 sys.path.append("..")
 from supporting.NN import DenseNN
 from supporting.utility import get_log_path
-
+import numpy as np
 
 class Placeholders(object):
     def __init__(self, env):
@@ -18,7 +18,6 @@ class Counter(object):
         self.val = tf.identity(self.var, name=name + '_counter_val') #get the value
         self.inc  = tf.assign(self.var, self.var + 1) #increment
         self.res = tf.assign(self.var, init_) #reset
-
 
 class DQN(object):
     def __init__(self, env, restore=True):
@@ -50,7 +49,6 @@ class DQN(object):
         else:
             return self._sess
 
-
     def attach_session(self, sess):
         self._sess = sess
 
@@ -67,9 +65,10 @@ class DQN(object):
                                                      self._sess.graph, flush_secs=5)
 
 
-    def get_action(self, observation):
+    def get_action(self, observation, fully_random=False):
+        if fully_random:
+            return np.random.randint(0,self._env.action_space.n)
         return 0
-
 
 
 #HOOKS:

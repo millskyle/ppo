@@ -12,14 +12,12 @@ logging.basicConfig(level=logging.INFO)
 """
 
 EPISODES = 100000000
-
-
 CHKPT_PATH = './model/'
-
 RESTORE = True
 
 #env = gym.make('MountainCar-v0')
 env = gym.make('CartPole-v0')
+
 #env = gym.make('RoboschoolPong-v1')
 
 if __name__=='__main__':
@@ -29,15 +27,13 @@ if __name__=='__main__':
     with tf.Session() as sess:
         dqn.attach_session(sess)
 
-
-
         for ep in range(EPISODES):
             obs = env.reset()
 
             dqn._start_of_episode()
             while True:
                 dqn._before_env_step()
-                action = dqn.get_action(obs)
+                action = dqn.get_action(obs, fully_random=True)
                 next_obs, reward, done, info = env.step(action)
                 dqn._after_env_step()
 
