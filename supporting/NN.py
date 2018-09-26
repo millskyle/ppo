@@ -11,7 +11,7 @@ class DenseNN(object):
         self._activations = activations
         self.scope = scope
 
-        out_ = self._in
+        out_ = tf.layers.flatten(inputs=self._in, name='flatten')
         with tf.variable_scope(self.scope, reuse=reuse):
             for i in range(len(self._units)):
                 layer_name='layer_{0}'.format(i)
@@ -27,5 +27,3 @@ class DenseNN(object):
 
     def get_variables(self):
         return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, self.scope)
-
-
