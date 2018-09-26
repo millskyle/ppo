@@ -1,0 +1,7 @@
+*.pyc
+*.local
+*.chkpt.index
+*.chkpt.model
+*.chkpt.meta
+*checkpoint
+*swp
