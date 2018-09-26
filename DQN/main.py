@@ -17,7 +17,7 @@ RESTORE = True
 
 
 
-STATE_SEQ_LENGTH = 5  # each state will be made up of this many "observations"
+STATE_SEQ_LENGTH = 4  # each state will be made up of this many "observations"
 
 #env = gym.make('MountainCar-v0')
 env = gym.make('CartPole-v0')
@@ -38,8 +38,18 @@ if __name__=='__main__':
             dqn._start_of_episode()
             while True:
                 dqn._before_env_step()
-                action = dqn.get_action(obs, fully_random=True)
+                #add observation to the sequence buffer
+                dqn._sequence_buffer.add(obs)
+                obs_seq, _ = dqn._sequence_buffer.dump()
+                #request the index of the action
+                action = dqn.get_action(obs_seq, epsilon=0.0)
+
+                #take the action
                 next_obs, reward, done, info = env.step(action)
+                dqn._replay_buffer.add((obs, action, reward, next_obs))
+                obs = next_obs
+                
+
                 dqn._after_env_step()
 
                 if done:

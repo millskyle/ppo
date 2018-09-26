@@ -6,6 +6,7 @@ import collections
 sys.path.append("..")
 from supporting.NN import DenseNN
 from supporting.utility import get_log_path
+from supporting.utility import Buffer
 import numpy as np
 
 
@@ -15,9 +16,10 @@ class Buffer(object):
         self.__data = collections.deque(maxlen=maxlen)
         self.__prior = collections.deque(maxlen=maxlen)
 
-    def add(self, point, priority=1):
-        self.__data.append(point)
-        self.__prior.append(priority)
+    def add(self, point, priority=1, add_until_full=True):
+        while not(self.is_full()):
+            self.__data.append(point)
+            self.__prior.append(priority)
 
     def empty(self):
         D = self.__data
@@ -34,11 +36,14 @@ class Buffer(object):
         Ps = [self.__prior.pop() for _ in range(N)]
         return Ds, Ps
 
+    def dump(self):
+        """Return the data without removing from the buffer"""
+        return self.__data, self.__prior
 
 
 class Placeholders(object):
-    def __init__(self, env):
-        self.state_in = tf.placeholder(tf.float32, shape=[None,] + list(env.observation_space.shape), name='state_in')
+    def __init__(self, env, state_sequence_length):
+        self.state_in = tf.placeholder(tf.float32, shape=[None,] + list(env.observation_space.shape) + [state_sequence_length,], name='state_in')
         self.action_in = tf.placeholder(tf.float32, shape=env.action_space.shape, name='action_in')
         self.epsilon = tf.placeholder(tf.float32, shape=[], name='current_exploration_probability')
 
@@ -60,7 +65,7 @@ class DQN(object):
         self._env_step_counter = Counter('env_step')
 
 
-        self._ph = Placeholders(env=self._env)
+        self._ph = Placeholders(env=self._env, state_sequence_length=state_sequence_length)
 
         self.Qnet = DenseNN(in_=self._ph.state_in,
                             units=[64,64,self._env.action_space.n],
@@ -125,10 +130,11 @@ class DQN(object):
 
     def get_action(self, observation, epsilon=0.0):
         #epsilon is probablility of random action
+        obs = np.array(observation).reshape([1,] + list(self._ph.state_in.shape)[1:])
         a_t = self._sess.run(self.a_t,
                              feed_dict={
                                 self._ph.epsilon: epsilon,
-                                self._ph.state_in: observation
+                                self._ph.state_in: obs
         })
         return 0
 
