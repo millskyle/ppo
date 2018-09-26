@@ -15,6 +15,10 @@ EPISODES = 100000000
 CHKPT_PATH = './model/'
 RESTORE = True
 
+
+
+STATE_SEQ_LENGTH = 5  # each state will be made up of this many "observations"
+
 #env = gym.make('MountainCar-v0')
 env = gym.make('CartPole-v0')
 
@@ -22,7 +26,8 @@ env = gym.make('CartPole-v0')
 
 if __name__=='__main__':
 
-    dqn = DQN(env=env, restore=RESTORE)
+    dqn = DQN(env=env, restore=RESTORE, state_sequence_length=STATE_SEQ_LENGTH,
+              )
 
     with tf.Session() as sess:
         dqn.attach_session(sess)
