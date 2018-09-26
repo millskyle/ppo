@@ -37,7 +37,7 @@ with tf.Session() as sess:
 
             next_obs, reward, done, info = env.step(act)
 
-            print("{2:5d}\t{0:10.2f}\t{1:10.2f}".format(v_pred, reward, step))
+            print("{2:5d}\t{0:10.2f}\t{1:10.2f}\t{3:d}".format(v_pred, reward, step, act))
             env.render()
 
             if done:

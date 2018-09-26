@@ -22,15 +22,15 @@ SOLVED_THRESHOLD_CONSECUTIVE_ITERATIONS = 100
 CHKPT_PATH = './model/'
 
 C_1 = 0.1
-C_2 = 0.001
+C_2 = 0.1
 RESTORE = True
 CURIOSITY = True
-ETA = 1e-1
+ETA = 0.2
 LAMBDA=1e-1
 BETA = 2e-1
 
 #env = gym.make('MountainCar-v0')
-env = gym.make('Stirling-v0')
+env = gym.make('Carnot-v1')
 #env = gym.make('CartPole-v0')
 #env = gym.make('RoboschoolPong-v1')
 
@@ -53,7 +53,8 @@ if __name__=='__main__':
                 saver.restore(sess, tf.train.latest_checkpoint(CHKPT_PATH))
             except:
                 sess.run(tf.global_variables_initializer())
-
+        else:
+            sess.run(tf.global_variables_initializer())
         policy.attach_session(sess)
         old_policy.attach_session(sess)
         ppo.attach_session(sess)
@@ -87,6 +88,10 @@ if __name__=='__main__':
                 rewards_extrinsic.append(reward_E)
                 next_obs, reward_E, done, info = env.step(action)
 
+                #hack for carnot:
+                if not(done):
+                    reward_E=0
+
                 observations_tp1.append(next_obs)
 
                 # for curiosity, apply the intrinsic reward
@@ -103,6 +108,8 @@ if __name__=='__main__':
                     saver.save(sess, CHKPT_PATH + 'model.chkpt')
 
                 if done:
+                    logging.info("DONE " + str(reward_E))
+                    rewards_extrinsic[-1] = reward_E
                     v_preds_next = v_preds[1:] + [0]  # next state of terminate state has 0 state value
                     obs = env.reset()
                     reward_E = 0
@@ -150,8 +157,8 @@ if __name__=='__main__':
 
                 data = [observations, actions, rewards, v_preds_next, advantage_estimate, observations_tp1]
 
-                for batch in range(1):
-                    sample_indices = np.random.randint(low=0, high=observations.shape[0], size=4)
+                for batch in range(4):
+                    sample_indices = np.random.randint(low=0, high=observations.shape[0], size=32)
                     data_sample = [np.take(a=ii, indices=sample_indices, axis=0) for ii in data]
 
                     ppo.train(observations=data_sample[0],

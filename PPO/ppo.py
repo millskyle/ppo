@@ -22,7 +22,7 @@ class Algorithm(object):
         self.advantage_estimate = tf.placeholder(dtype=tf.float32, shape=[None], name='advantage_estimate')
 
 
-    def __init__(self, policy, old_policy, gamma=0.95, epsilon=0.2, c_1=1., c_2=0.01,
+    def __init__(self, policy, old_policy, gamma=0.95, epsilon=0.2, c_1=1., c_2=0.000001,
                  use_curiosity=False, eta=0.1, llambda=0.1, beta=0.2):
         """ epsilon :: clip_value """
         self.policy = policy
@@ -54,7 +54,8 @@ class Algorithm(object):
         ### Curiosity
         if self._use_curiosity:
             with tf.variable_scope('curiosity'):
-                a_t = self.policy.a_prob
+                a_t = tf.cast(tf.one_hot(indices=self.actions, depth=self.policy.a_prob.shape[1], on_value=1, off_value=0), tf.float32)
+                self.action_taken_onehot = a_t
                 s_t = self.policy.observation
                 self.observation_tp1 = tf.placeholder(dtype=tf.float32,
                                                   shape=self.policy.observation.shape,
@@ -64,38 +65,41 @@ class Algorithm(object):
                 #encode the observation. This could be any type of neural net.
                 #if the observation is an image, probably want convolutional
                 inverse_nn_t = DenseNN(in_=s_t,
-                                     units=[16,16,32],
+                                     units=[16,32,64],
                                      activations=[tf.nn.selu,]*3,
                                      scope='curiosity_inverse')
                 #encode the observation at time t+1 with the same neural net (and
                 #same weights)
                 inverse_nn_tp1 = DenseNN(in_=s_tp1,
-                                          units=[16,16,32],
+                                          units=[16,32,64],
                                           activations=[tf.nn.selu,]*3,
                                           scope='curiosity_inverse')
 
                 joined = tf.concat((inverse_nn_t.output, inverse_nn_tp1.output), axis=1)
 
                 inverse_nn = DenseNN(in_=joined,
-                                     units=[32,a_t.shape[1]],
+                                     units=[64,a_t.shape[1]],
                                      activations=[tf.nn.selu,None],
                                      scope='curiosity_inverse_enc')
                 self._curiosity_a_pred = inverse_nn.output
                 inp_forward = tf.concat((self._curiosity_a_pred, s_t), axis=1)
                 forward_nn = DenseNN(in_=inp_forward,
-                                     units=[64,64, inverse_nn_tp1.output.shape[1]],
-                                     activations=[tf.nn.selu,]*2 +[None],
+                                     units=[64, inverse_nn_tp1.output.shape[1]],
+                                     activations=[tf.nn.selu,] +[None],
                                      scope='curiosity_forward'
                                      )
         if self._use_curiosity:
             #we want to train the inverse network to predict the correct action:
             with tf.variable_scope('L/Inverse'):
-                L_I = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=self._curiosity_a_pred,
-                                                             labels=a_t))
+                L_I = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
+                                                    logits=self._curiosity_a_pred,
+                                                    labels=a_t))
+
+                #L_I = tf.reduce_mean(tf.square(self._curiosity_a_pred-a_t))
             with tf.variable_scope('L/Forward'):
                 L_F = tf.reduce_mean(tf.nn.l2_loss(forward_nn.output-inverse_nn_tp1.output))
 
-            self.reward_intrinsic = eta * L_F
+            self.reward_intrinsic = eta * tf.reduce_mean(tf.nn.l2_loss(forward_nn.output-inverse_nn_tp1.output))
 
 
         with tf.variable_scope('L/CLIP'):
@@ -134,7 +138,7 @@ class Algorithm(object):
             #negative instead
             loss = -L_clip + c_1*L_vf - c_2*L_S
             if self._use_curiosity:
-                loss = loss + (1-beta)*L_I + beta*L_F
+                loss = llambda*loss + (1-beta)*L_I + beta*L_F
                 tf.summary.scalar('L_inverse', (1-beta)*L_I )
                 tf.summary.scalar('L_forward', beta*L_F)
 
@@ -149,7 +153,7 @@ class Algorithm(object):
                 vars_to_optimize.append(var)
 
         with tf.variable_scope('optimizer'):
-            optimizer = tf.train.AdamOptimizer(learning_rate=1e-4, epsilon=1e-5)
+            optimizer = tf.train.AdamOptimizer(learning_rate=1e-5, epsilon=1e-5)
             self.train_op = optimizer.minimize(loss, var_list=vars_to_optimize)
             #icm_optimizer = tf.train.AdamOptimizer(learning_rate=1e-4, epsilon=1e-5)
             #self.icm_train_op = icm_optimizer.minimize()
@@ -196,9 +200,9 @@ class Algorithm(object):
 
 
         if verbose:
-            pred, taken = self.sess.run([self._curiosity_a_pred, self.policy.a_prob], feed_dict=feed_dict)
-            logging.info("A_pred:" + str(softmax(pred[0])))
-            logging.info("A_taken:" + str(softmax(taken[0])))
+            pred, taken = self.sess.run([self._curiosity_a_pred, self.action_taken_onehot], feed_dict=feed_dict)
+            logging.info("A_pred:" + str(pred[0]))
+            logging.info("A_taken:" + str(taken[0]))
 
         self.__weight_update_counter += 1
         if self.__weight_update_counter%10==0:
