@@ -5,7 +5,7 @@ import gym
 import cleangym
 import roboschool
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 """ Main file that initializes an environment,
     sets up the policy networks, training algorithm, etc.

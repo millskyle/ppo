@@ -1,3 +1,4 @@
+import collections
 import os
 
 def get_log_path(logdir, prefix='run_'):

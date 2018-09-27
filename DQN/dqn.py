@@ -2,7 +2,6 @@ import tensorflow as tf
 import sys
 import os
 import logging
-import collections
 sys.path.append("..")
 from supporting.NN import DenseNN
 from supporting.utility import get_log_path
@@ -13,9 +12,9 @@ class Placeholders(object):
     def __init__(self, env, state_sequence_length):
         self.state_in = tf.placeholder(tf.float32, shape=[None,] + list(env.observation_space.shape) + [state_sequence_length,], name='state_in')
         self.state_next_in = tf.placeholder(tf.float32, shape=[None,] + list(env.observation_space.shape) + [state_sequence_length,], name='next_state_in')
-        self.action_in = tf.placeholder(tf.float32, shape=[None, env.action_space.shape], name='action_in')
+        self.action_in = tf.placeholder(tf.int64, shape=[None, env.action_space.n], name='action_in')
         self.reward_in = tf.placeholder(tf.float32, shape=[None,], name='reward_in')
-        self.done_in = tf.placeholder(tf.boolean, shape=[None,], name='done_in')
+        self.done_in = tf.placeholder(tf.bool, shape=[None,], name='done_in')
         self.epsilon = tf.placeholder(tf.float32, shape=[], name='current_exploration_probability')
 
 class Counter(object):
@@ -54,15 +53,15 @@ class DQN(object):
         self.targ_Qnet = DenseNN(in_=self._ph.state_next_in,
                             units=[64,64,self._env.action_space.n],
                             activations=[tf.nn.selu,]*2 + [None],
-                            scope='Q_hat',
+                            scope='target_Q',
                             reuse=False
                             )
 
         yj =   self._ph.reward_in \
-             + (tf.logical_not(self._ph.done_in))\
-                    * self._gamma\
-                    * tf.reduce_max(self.targ_Qnet, axis=1)\
-             - tf.gather_nd(params=self.Qnet, indices=tf.action_in)
+             + (tf.to_float(tf.logical_not(self._ph.done_in))) \
+                    * self._gamma \
+                    * tf.reduce_max(self.targ_Qnet.output, axis=1)\
+             - tf.gather_nd(params=self.Qnet.output, indices=self._ph.action_in)
 
         self.objective = tf.reduce_mean(tf.square(yj))
 
@@ -72,7 +71,7 @@ class DQN(object):
 
 
 
-        self._sync_scopes_ops = self._get_sync_scopes_ops(to_scope='Q_hat',
+        self._sync_scopes_ops = self._get_sync_scopes_ops(to_scope='target_Q',
                                                           from_scope='Q')
 
         self._saver = tf.train.Saver()
