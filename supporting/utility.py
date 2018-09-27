@@ -34,13 +34,17 @@ class Buffer(object):
         self.__prior = collections.deque(maxlen=maxlen)
 
     def add(self, point, priority=1, add_until_full=True):
-        while not(self.is_full()):
-            self.__data.append(point)
-            self.__prior.append(priority)
+        self.__data.append(point)
+        self.__prior.append(priority)
+        if add_until_full:
+            while not(self.is_full()):
+                self.__data.append(point)
+                self.__prior.append(priority)
+
 
     def empty(self):
-        D = self.__data
-        P = self.__prior
+        D = list(self.__data)
+        P = list(self.__prior)
         self.__data.clear()
         self.__prior.clear()
         return D, P
@@ -55,7 +59,7 @@ class Buffer(object):
 
     def dump(self):
         """Return the data without removing from the buffer"""
-        return self.__data, self.__prior
+        return list(self.__data), list(self.__prior)
 
     @property
     def size(self):
