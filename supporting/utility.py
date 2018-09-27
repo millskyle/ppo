@@ -1,5 +1,13 @@
 import collections
 import os
+import numpy as np
+
+
+
+
+
+
+
 
 def get_log_path(logdir, prefix='run_'):
     try:
@@ -45,3 +53,9 @@ class Buffer(object):
     @property
     def size(self):
         return len(self.__data)
+
+    def sample(self, N, random=True):
+        if random:
+            indices = np.random.choice(len(self.__data), size=N)
+            batch = [self.__data[i] for i in indices]
+            return batch
