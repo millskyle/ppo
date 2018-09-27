@@ -41,3 +41,7 @@ class Buffer(object):
     def dump(self):
         """Return the data without removing from the buffer"""
         return self.__data, self.__prior
+
+    @property
+    def size(self):
+        return len(self.__data)
