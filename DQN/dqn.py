@@ -9,45 +9,14 @@ from supporting.utility import get_log_path
 from supporting.utility import Buffer
 import numpy as np
 
-
-class Buffer(object):
-    def __init__(self, maxlen, prioritized=False):
-        self.__maxlen=maxlen
-        self.__data = collections.deque(maxlen=maxlen)
-        self.__prior = collections.deque(maxlen=maxlen)
-
-    def add(self, point, priority=1, add_until_full=True):
-        while not(self.is_full()):
-            self.__data.append(point)
-            self.__prior.append(priority)
-
-    def empty(self):
-        D = self.__data
-        P = self.__prior
-        self.__data.clear()
-        self.__prior.clear()
-        return D, P
-
-    def is_full(self):
-        return len(self.__data)==self.__maxlen
-
-    def pop(self, N):
-        Ds = [self.__data.pop() for _ in range(N)]
-        Ps = [self.__prior.pop() for _ in range(N)]
-        return Ds, Ps
-
-    def dump(self):
-        """Return the data without removing from the buffer"""
-        return self.__data, self.__prior
-
-
 class Placeholders(object):
     def __init__(self, env, state_sequence_length):
         self.state_in = tf.placeholder(tf.float32, shape=[None,] + list(env.observation_space.shape) + [state_sequence_length,], name='state_in')
-        self.action_in = tf.placeholder(tf.float32, shape=env.action_space.shape, name='action_in')
+        self.state_next_in = tf.placeholder(tf.float32, shape=[None,] + list(env.observation_space.shape) + [state_sequence_length,], name='next_state_in')
+        self.action_in = tf.placeholder(tf.float32, shape=[None, env.action_space.shape], name='action_in')
+        self.reward_in = tf.placeholder(tf.float32, shape=[None,], name='reward_in')
+        self.done_in = tf.placeholder(tf.boolean, shape=[None,], name='done_in')
         self.epsilon = tf.placeholder(tf.float32, shape=[], name='current_exploration_probability')
-
-
 
 class Counter(object):
     def __init__(self, name, init_=0):
@@ -57,9 +26,10 @@ class Counter(object):
         self.res = tf.assign(self.var, init_) #reset
 
 class DQN(object):
-    def __init__(self, env, restore=True, state_sequence_length=1):
+    def __init__(self, env, restore=True, state_sequence_length=1, gamma=0.99):
         self._env = env
         self.__restore = restore
+        self._gamma = gamma
 
         self._episode_counter = Counter('episode')
         self._env_step_counter = Counter('env_step')
@@ -81,18 +51,31 @@ class DQN(object):
 
 
 
-        self.targ_Qnet = DenseNN(in_=self._ph.state_in,
+        self.targ_Qnet = DenseNN(in_=self._ph.state_next_in,
                             units=[64,64,self._env.action_space.n],
                             activations=[tf.nn.selu,]*2 + [None],
                             scope='Q_hat',
                             reuse=False
                             )
 
+        yj =   self._ph.reward_in \
+             + (tf.logical_not(self._ph.done_in))\
+                    * self._gamma\
+                    * tf.reduce_max(self.targ_Qnet, axis=1)\
+             - tf.gather_nd(params=self.Qnet, indices=tf.action_in)
+
+        self.objective = tf.reduce_mean(tf.square(yj))
+
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
+        self.train_op = self.optimizer.minimize(self.objective, var_list=self.Qnet.get_variables())
+
+
+
+
         self._sync_scopes_ops = self._get_sync_scopes_ops(to_scope='Q_hat',
                                                           from_scope='Q')
 
         self._saver = tf.train.Saver()
-
         self._sequence_buffer = Buffer(maxlen=state_sequence_length)
         self._replay_buffer = Buffer(maxlen=10000)
 

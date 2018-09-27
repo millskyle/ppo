@@ -46,10 +46,8 @@ if __name__=='__main__':
 
                 #take the action
                 next_obs, reward, done, info = env.step(action)
-                dqn._replay_buffer.add((obs, action, reward, next_obs))
+                dqn._replay_buffer.add((obs, action, reward, done, next_obs))
                 obs = next_obs
-                
-
                 dqn._after_env_step()
 
                 if done:
