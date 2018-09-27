@@ -11,8 +11,8 @@ import numpy as np
 class Placeholders(object):
     def __init__(self, env, state_sequence_length):
         self.state_in = tf.placeholder(tf.float32, shape=[None,] + list(env.observation_space.shape) + [state_sequence_length,], name='state_in')
-        self.state_next_in = tf.placeholder(tf.float32, shape=[None,] + list(env.observation_space.shape) + [state_sequence_length,], name='next_state_in')
-        self.action_in = tf.placeholder(tf.int64, shape=[None, env.action_space.n], name='action_in')
+        self.state_tp1_in = tf.placeholder(tf.float32, shape=[None,] + list(env.observation_space.shape) + [state_sequence_length,], name='next_state_in')
+        self.action_in = tf.placeholder(tf.int64, shape=[None,], name='action_in')
         self.reward_in = tf.placeholder(tf.float32, shape=[None,], name='reward_in')
         self.done_in = tf.placeholder(tf.bool, shape=[None,], name='done_in')
         self.epsilon = tf.placeholder(tf.float32, shape=[], name='current_exploration_probability')
@@ -23,6 +23,19 @@ class Counter(object):
         self.val = tf.identity(self.var, name=name + '_counter_val') #get the value
         self.inc  = tf.assign(self.var, self.var + 1) #increment
         self.res = tf.assign(self.var, init_) #reset
+        self.__sess = None
+        self.__mode_dict = {'increment':self.inc,
+                            'value':self.val,
+                            'reset':self.res
+                            }
+
+    def attach_session(self, sess):
+        self.__sess = sess
+
+    def eval(self, mode='increment'):
+        assert self.__sess is not None, "You must attach a session to the counter by calling attach_session() before you can use the eval() method."
+        return self.__sess.run(self.__mode_dict[mode])
+
 
 class DQN(object):
     def __init__(self, env, restore=True, state_sequence_length=1, gamma=0.99):
@@ -32,7 +45,9 @@ class DQN(object):
 
         self._episode_counter = Counter('episode')
         self._env_step_counter = Counter('env_step')
-
+        self._total_step_counter = Counter('total_steps')
+        self._weight_update_counter = Counter('weight_update')
+        self.__counters=[self._episode_counter, self._env_step_counter, self._total_step_counter, self._weight_update_counter]
 
         self._ph = Placeholders(env=self._env, state_sequence_length=state_sequence_length)
 
@@ -44,13 +59,13 @@ class DQN(object):
                             )
 
         self.a_t = tf.cond(pred=(tf.random_uniform(shape=[]) > self._ph.epsilon),
-                           true_fn=lambda: tf.argmax(self.Qnet.output),
+                           true_fn=lambda: tf.argmax(self.Qnet.output)[1],
                            false_fn=lambda: tf.random_uniform(shape=[],dtype=tf.int64,minval=0, maxval=self._env.action_space.n)
                            )
 
 
 
-        self.targ_Qnet = DenseNN(in_=self._ph.state_next_in,
+        self.targ_Qnet = DenseNN(in_=self._ph.state_tp1_in,
                             units=[64,64,self._env.action_space.n],
                             activations=[tf.nn.selu,]*2 + [None],
                             scope='target_Q',
@@ -61,12 +76,14 @@ class DQN(object):
              + (tf.to_float(tf.logical_not(self._ph.done_in))) \
                     * self._gamma \
                     * tf.reduce_max(self.targ_Qnet.output, axis=1)\
-             - tf.gather_nd(params=self.Qnet.output, indices=self._ph.action_in)
+             - tf.reduce_sum(tf.one_hot(self._ph.action_in, depth=self.Qnet.output.shape[1])*self.Qnet.output, axis=1)
 
         self.objective = tf.reduce_mean(tf.square(yj))
 
         self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
-        self.train_op = self.optimizer.minimize(self.objective, var_list=self.Qnet.get_variables())
+        self.train_op = self.optimizer.minimize(self.objective,
+                                                var_list=self.Qnet.get_variables(),
+                                                global_step=self._weight_update_counter.var)
 
 
 
@@ -85,6 +102,7 @@ class DQN(object):
         for to_var, from_var in zip(to_vars, from_vars):
             logging.debug("Creating op to sync {} --> {}".format(from_var.name, to_var.name))
             assign_ops.append(tf.assign(to_var, from_var))
+        return assign_ops
 
     @property
     def sess(self):
@@ -96,6 +114,8 @@ class DQN(object):
 
     def attach_session(self, sess):
         self._sess = sess
+        for counter in self.__counters:
+            counter.attach_session(self._sess)
 
         if self.__restore:
             try:
@@ -110,6 +130,21 @@ class DQN(object):
                                                      self._sess.graph, flush_secs=5)
 
 
+    def train(self, batch_size):
+        #get a batch of data randomly from the replay buffer:
+        data = self._replay_buffer.sample(N=batch_size)
+        s, a, r, d, s_tp1  = list(map(list, zip(*data))) #transpose the list of lists
+        feed_dict = {
+            self._ph.state_in:     np.array(s),
+            self._ph.action_in:    np.array(a),
+            self._ph.reward_in:    np.array(r),
+            self._ph.done_in:      np.array(d),
+            self._ph.state_tp1_in: np.array(s_tp1)
+        }
+
+        _ = self._sess.run([self.train_op,], feed_dict=feed_dict)
+
+
     def get_action(self, observation, epsilon=0.0):
         #epsilon is probablility of random action
         obs = np.array(observation).reshape([1,] + list(self._ph.state_in.shape)[1:])
@@ -118,7 +153,7 @@ class DQN(object):
                                 self._ph.epsilon: epsilon,
                                 self._ph.state_in: obs
         })
-        return 0
+        return a_t
 
 
 #HOOKS:
@@ -138,6 +173,7 @@ class DQN(object):
 
     def _before_env_step(self):
         self._sess.run(self._env_step_counter.inc)
+        self._sess.run(self._total_step_counter.inc)
 
     def _after_env_step(self):
         if self.__render_requested:
