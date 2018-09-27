@@ -3,7 +3,14 @@ import os
 import numpy as np
 
 
+class LinearSchedule(object):
+    def __init__(self, start, end, steps):
+        self.start = start
+        self.end = end
+        self.steps = steps
 
+    def val(self, t):
+        return (self.end - self.start) / float(self.steps) * t + self.start
 
 
 
