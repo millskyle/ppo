@@ -12,10 +12,6 @@ class LinearSchedule(object):
     def val(self, t):
         return (self.end - self.start) / float(self.steps) * t + self.start
 
-
-
-
-
 def get_log_path(logdir, prefix='run_'):
     try:
         os.mkdir(logdir)
@@ -40,7 +36,6 @@ class Buffer(object):
             while not(self.is_full()):
                 self.__data.append(point)
                 self.__prior.append(priority)
-
 
     def empty(self):
         D = list(self.__data)

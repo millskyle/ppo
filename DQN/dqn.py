@@ -58,12 +58,10 @@ class DQN(object):
                             reuse=False
                             )
 
-        self.a_t = tf.cond(pred=(tf.random_uniform(shape=[]) > self._ph.epsilon),
+        self.a_t = tf.cond(pred=(self._ph.epsilon < tf.random_uniform(shape=[])),
                            true_fn=lambda: tf.argmax(self.Qnet.output)[1],
                            false_fn=lambda: tf.random_uniform(shape=[],dtype=tf.int64,minval=0, maxval=self._env.action_space.n)
                            )
-
-
 
         self.targ_Qnet = DenseNN(in_=self._ph.state_tp1_in,
                             units=[64,64,self._env.action_space.n],
@@ -85,15 +83,14 @@ class DQN(object):
                                                 var_list=self.Qnet.get_variables(),
                                                 global_step=self._weight_update_counter.var)
 
-
-
-
         self._sync_scopes_ops = self._get_sync_scopes_ops(to_scope='target_Q',
                                                           from_scope='Q')
 
         self._saver = tf.train.Saver()
         self._sequence_buffer = Buffer(maxlen=state_sequence_length)
         self._replay_buffer = Buffer(maxlen=10000)
+        self._episode_reward_buffer = Buffer(maxlen=None)
+
 
     def _get_sync_scopes_ops(self, from_scope, to_scope):
         from_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=from_scope)
@@ -103,6 +100,9 @@ class DQN(object):
             logging.debug("Creating op to sync {} --> {}".format(from_var.name, to_var.name))
             assign_ops.append(tf.assign(to_var, from_var))
         return assign_ops
+
+    def _set_up_summaries(self):
+        pass
 
     @property
     def sess(self):
@@ -125,12 +125,12 @@ class DQN(object):
             else:
                 sess.run(tf.global_variables_initializer())
 
-
+        self._set_up_summaries()
         self._summary_writer = tf.summary.FileWriter(get_log_path('./logs','run_'),
                                                      self._sess.graph, flush_secs=5)
+        self._merged_summaries = tf.summary.merge_all()
 
-
-    def train(self, batch_size):
+    def train(self, batch_size, epsilon):
         #get a batch of data randomly from the replay buffer:
         data = self._replay_buffer.sample(N=batch_size)
         s, a, r, d, s_tp1  = list(map(list, zip(*data))) #transpose the list of lists
@@ -139,10 +139,11 @@ class DQN(object):
             self._ph.action_in:    np.array(a),
             self._ph.reward_in:    np.array(r),
             self._ph.done_in:      np.array(d),
-            self._ph.state_tp1_in: np.array(s_tp1)
+            self._ph.state_tp1_in: np.array(s_tp1),
+            self._ph.epsilon:      epsilon,
         }
 
-        _ = self._sess.run([self.train_op,], feed_dict=feed_dict)
+        _ = self._sess.run([self.train_op, ], feed_dict=feed_dict)
 
 
     def get_action(self, observation, epsilon=0.0):
@@ -161,8 +162,16 @@ class DQN(object):
         logging.debug("End of episode {}".format(self._sess.run(self._episode_counter.val)))
         self._sess.run(self._episode_counter.inc)
 
+        #SUMMARIES
+        summary = tf.Summary()
+        r, _ = self._episode_reward_buffer.dump()
+        summary.value.add(tag='reward', simple_value=sum(r))
+        summary.value.add(tag='episode_length', simple_value=self._env_step_counter.eval())
+        self._summary_writer.add_summary(summary, self._total_step_counter.eval())
+
     def _start_of_episode(self):
         self._sess.run(self._env_step_counter.res)
+        _ = self._episode_reward_buffer.empty()
         "Check to see if the 'render' file exists and set a flag"
         if os.path.exists('./render'):
             self.__render_requested = True
@@ -175,6 +184,8 @@ class DQN(object):
         self._sess.run(self._env_step_counter.inc)
         self._sess.run(self._total_step_counter.inc)
 
-    def _after_env_step(self):
+    def _after_env_step(self, reward=None):
+        if reward is not None:
+            self._episode_reward_buffer.add(reward, add_until_full=False)
         if self.__render_requested:
             self._env.render()
