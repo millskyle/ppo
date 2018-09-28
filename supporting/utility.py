@@ -2,6 +2,13 @@ import collections
 import os
 import numpy as np
 
+def nonetoneg(l):
+    """Replaces first occurring None value in list l with -1"""
+    print (l)
+    l2 = [i for i in l]
+    l2[l2.index(None)] = -1
+    return l2
+
 
 class LinearSchedule(object):
     def __init__(self, start, end, steps):
@@ -11,6 +18,10 @@ class LinearSchedule(object):
 
     def val(self, t):
         return (self.end - self.start) / float(self.steps) * t + self.start
+
+
+
+
 
 def get_log_path(logdir, prefix='run_'):
     try:
