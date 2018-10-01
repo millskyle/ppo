@@ -24,7 +24,7 @@ BATCH_SIZE=128
 Q_SYNC_FREQ = 2  #number of *episodes* between syncronization of Q functions
 TRAINING_FREQ = 4 #Train after this many total steps
 
-epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(1e6))
+epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(1e5))
 
 STATE_SEQ_LENGTH = 1  # each state will be made up of this many "observations"
 
@@ -33,7 +33,6 @@ STATE_SEQ_LENGTH = 1  # each state will be made up of this many "observations"
 #env = gym.make('Debug-v0')
 env = gym.make('CartPole-v0')
 #env = gym.make('KBlocker-v0')
-#env = gym.make('RoboschoolPong-v1')
 
 if __name__=='__main__':
 
