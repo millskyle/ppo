@@ -20,6 +20,8 @@ Ts = Steps after which success is evident
 
 ### Normal DQN
 
+_All benchmarking in this section was done with a dense 3-layer neural network, with 400 x 400 x n_actions nodes._
+
 | Environment    | Success  | lr  | e | s | Tq | Tt | Ts   |
 | -------------- | -------- | --- | _ | _ | __ | __ | ____ |
 | Debug-v0       | True     | -3  | 4 | 1 | 2  | 4  | 15 k |
