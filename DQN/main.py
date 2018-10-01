@@ -19,19 +19,19 @@ logging.basicConfig(level=logging.DEBUG)
 
 EPISODES = 10000
 CHKPT_PATH = './models/'
-RESTORE = True
-BATCH_SIZE=100
+RESTORE = False
+BATCH_SIZE=128
 Q_SYNC_FREQ = 2  #number of *episodes* between syncronization of Q functions
 TRAINING_FREQ = 4 #Train after this many total steps
 
-epsilon = LinearSchedule(start=1.0, end=0.01, steps=10000000)
+epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(1e6))
 
 STATE_SEQ_LENGTH = 1  # each state will be made up of this many "observations"
 
 #env = gym.make('MountainCar-v0')
-env = gym.make('CartPole-v0')
-env = gym.make('Carnot-v1')
+#env = gym.make('Carnot-v1')
 #env = gym.make('Debug-v0')
+env = gym.make('CartPole-v0')
 #env = gym.make('KBlocker-v0')
 #env = gym.make('RoboschoolPong-v1')
 
