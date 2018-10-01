@@ -75,30 +75,21 @@ class DQN(object):
         #Let's slowly build the _td_error so we can see the shapes
         #for debugging
         rj = self._ph.reward_in
-        print(self._ph.reward_in.shape)
-        done_mask = 1.0 - tf.to_float(self._ph.done_in)
-        print("done_mask",done_mask.shape)
-        print("target_net", self.targ_Qnet.output.shape)
+        done_mask = tf.to_float(tf.logical_not(self._ph.done_in))
         max_over_actions_target_net = tf.reduce_max(self.targ_Qnet.output, axis=1)
-        print("max_over_actions_target_net", max_over_actions_target_net.shape)
         q_value_of_the_action_we_took = tf.reduce_sum(tf.one_hot(self._ph.action_in, depth=self.Qnet.output.shape[1])*self.Qnet.output, axis=1)
-        print("q_value_of_the_action_we_took", q_value_of_the_action_we_took.shape)
 
-        td_error = rj + done_mask*self._gamma * max_over_actions_target_net - q_value_of_the_action_we_took
-        print("td_error",td_error.shape)
+        #y_j in the DQN paper:
+        yj = rj + done_mask * self._gamma * max_over_actions_target_net
 
-        #yj =   self._ph.reward_in + \
-        #      (1.0 - tf.to_float(self._ph.done_in)) \
-        #            * self._gamma \
-        #            * tf.reduce_max(self.targ_Qnet.output, axis=1)
-        #Q_j_a = tf.reduce_sum(tf.one_hot(self._ph.action_in, depth=self.Qnet.output.shape[1])*self.Qnet.output, axis=1)
+        #td-error:
+        td_error = yj - q_value_of_the_action_we_took
 
-        self._td_error = tf.reduce_mean(tf.square(td_error))
-
-        self.objective = self._td_error
+        self.objective = tf.reduce_mean(tf.square(td_error))
         tf.summary.scalar('td_error', self.objective)
 
         self._set_up_summaries()
+
 
         logging.debug("Vars to optimize:")
         for var in self.Qnet.get_variables():
