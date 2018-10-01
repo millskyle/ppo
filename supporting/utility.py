@@ -12,12 +12,17 @@ def nonetoneg(l):
 
 class LinearSchedule(object):
     def __init__(self, start, end, steps):
+        """Linear schedule, with a y-intercept of start, decreasing to end in steps steps. If evaluated
+        at t > steps, end will be returned, e.g. val = max(val, end)"""
         self.start = start
         self.end = end
         self.steps = steps
 
     def val(self, t):
-        return (self.end - self.start) / float(self.steps) * t + self.start
+        v = (self.end - self.start) / float(self.steps) * t + self.start
+        v = min(v, self.start)
+        v = max(v, self.end)
+        return v
 
 
 
