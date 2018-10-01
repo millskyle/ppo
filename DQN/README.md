@@ -22,7 +22,7 @@ Ts = Steps after which success is evident
 
 _All benchmarking in this section was done with a dense 3-layer neural network, with 400 x 400 x n_actions nodes._
 
-| Environment    | Success  | lr  | e | s | Tq | Tt | Ts   |
-| -------------- | -------- | --- | _ | _ | __ | __ | ____ |
-| Debug-v0       | True     | -3  | 4 | 1 | 2  | 4  | 15 k |
-| CartPole-v1    | True
+| Environment    | Success  | lr  | e | s | Tq | Tt | Ts    |
+| -------------- | -------- | --- | _ | _ | __ | __ | _____ |
+| Debug-v0       | True     | -3  | 4 | 1 | 2  | 4  | 15 k  |
+| CartPole-v1    | True     | -3  | 5 | 1 | 2  | 4  | 120 k |
