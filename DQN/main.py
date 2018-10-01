@@ -2,8 +2,6 @@ import tensorflow as tf
 import numpy as np
 from dqn import DQN
 import gym
-import cleangym
-import roboschool
 import kmgym
 import logging
 import sys
