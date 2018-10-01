@@ -37,11 +37,11 @@ class Counter(object):
         assert self.__sess is not None, "You must attach a session to the counter by calling attach_session() before you can use the eval() method."
         return self.__sess.run(self.__mode_dict[mode])
 
-
 class DQN(object):
-    def __init__(self, env, restore=True, state_sequence_length=1, gamma=0.95):
+    def __init__(self, env, restore=True, state_sequence_length=1, checkpoint_path=None, gamma=0.95):
         self._env = env
         self.__restore = restore
+        self._checkpoint_path = checkpoint_path
         self._gamma = gamma
 
         self._episode_counter = Counter('episode')
@@ -151,8 +151,13 @@ class DQN(object):
 
         if self.__restore:
             try:
-                saver.restore(sess, tf.train.latest_checkpoint(CHKPT_PATH))
+            #if True:
+                logging.debug("Attempting to restore variables")
+                latest_checkpoint = tf.train.latest_checkpoint(self._checkpoint_path)
+                self._saver.restore(sess, latest_checkpoint)
+                logging.info("Variables restored from checkpoint {}".format(latest_checkpoint))
             except:
+                logging.warning("Variable restoration/ FAILED. Initializing variables instead.")
                 sess.run(tf.global_variables_initializer())
             else:
                 sess.run(tf.global_variables_initializer())
@@ -221,6 +226,8 @@ class DQN(object):
         summary.value.add(tag='reward', simple_value=sum(r))
         summary.value.add(tag='episode_length', simple_value=self._env_step_counter.eval())
         self._summary_writer.add_summary(summary, self._total_step_counter.eval())
+
+        self._saver.save(self._sess, './' + self._checkpoint_path + '/chkpt')
 
     def _start_of_episode(self):
         self._sess.run(self._env_step_counter.res)

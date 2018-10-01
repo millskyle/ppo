@@ -18,25 +18,27 @@ logging.basicConfig(level=logging.DEBUG)
 """
 
 EPISODES = 10000
-CHKPT_PATH = './model/'
+CHKPT_PATH = './models/'
 RESTORE = True
 BATCH_SIZE=100
-Q_SYNC_FREQ = 1  #number of *episodes* between syncronization of Q functions
+Q_SYNC_FREQ = 2  #number of *episodes* between syncronization of Q functions
 TRAINING_FREQ = 4 #Train after this many total steps
 
-epsilon = LinearSchedule(start=1.0, end=0.01, steps=100000)
+epsilon = LinearSchedule(start=1.0, end=0.01, steps=10000000)
 
 STATE_SEQ_LENGTH = 1  # each state will be made up of this many "observations"
 
 #env = gym.make('MountainCar-v0')
 env = gym.make('CartPole-v0')
+env = gym.make('Carnot-v1')
 #env = gym.make('Debug-v0')
 #env = gym.make('KBlocker-v0')
 #env = gym.make('RoboschoolPong-v1')
 
 if __name__=='__main__':
 
-    dqn = DQN(env=env, restore=RESTORE, state_sequence_length=STATE_SEQ_LENGTH,)
+    dqn = DQN(env=env, restore=RESTORE, state_sequence_length=STATE_SEQ_LENGTH,
+              checkpoint_path=CHKPT_PATH)
 
     with tf.Session() as sess:
         dqn.attach_session(sess)
