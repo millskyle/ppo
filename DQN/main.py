@@ -22,9 +22,11 @@ BATCH_SIZE=128
 Q_SYNC_FREQ = 2  #number of *episodes* between syncronization of Q functions
 TRAINING_FREQ = 4 #Train after this many total steps
 
-epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(1e5))
+epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(3e5))
 
 STATE_SEQ_LENGTH = 1  # each state will be made up of this many "observations"
+
+FLAGS = {'prioritized_buffer': True}
 
 #env = gym.make('MountainCar-v0')
 #env = gym.make('Carnot-v1')
@@ -35,7 +37,7 @@ env = gym.make('CartPole-v0')
 if __name__=='__main__':
 
     dqn = DQN(env=env, restore=RESTORE, state_sequence_length=STATE_SEQ_LENGTH,
-              checkpoint_path=CHKPT_PATH)
+              checkpoint_path=CHKPT_PATH, flags=FLAGS)
 
     with tf.Session() as sess:
         dqn.attach_session(sess)

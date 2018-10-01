@@ -26,3 +26,16 @@ _All benchmarking in this section was done with a dense 3-layer neural network, 
 | -------------- | -------- | --- | _ | _ | __ | __ | _____ |
 | Debug-v0       | True     | -3  | 4 | 1 | 2  | 4  | 15 k  |
 | CartPole-v1    | True     | -3  | 5 | 1 | 2  | 4  | 120 k |
+
+
+
+
+
+
+### Citations
+If you use this code, you should probably cite the following papers, depending on which features you use:
+
+ - Original DQN paper:
+   - https://web.stanford.edu/class/psych209/Readings/MnihEtAlHassibis15NatureControlDeepRL.pdf
+ - Prioritized buffer:
+   - https://arxiv.org/abs/1511.05952

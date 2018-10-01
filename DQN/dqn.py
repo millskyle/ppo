@@ -38,11 +38,14 @@ class Counter(object):
         return self.__sess.run(self.__mode_dict[mode])
 
 class DQN(object):
-    def __init__(self, env, restore=True, state_sequence_length=1, checkpoint_path=None, gamma=0.95):
+    def __init__(self, env, restore=True, state_sequence_length=1,
+                 checkpoint_path=None, gamma=0.95, flags={}):
+
         self._env = env
         self.__restore = restore
         self._checkpoint_path = checkpoint_path
         self._gamma = gamma
+        self._flags = flags
 
         self._episode_counter = Counter('episode')
         self._env_step_counter = Counter('env_step')
@@ -83,10 +86,10 @@ class DQN(object):
         yj = rj + done_mask * self._gamma * max_over_actions_target_net
 
         #td-error:
-        td_error = yj - q_value_of_the_action_we_took
+        self._td_error = yj - q_value_of_the_action_we_took
 
-        self.objective = tf.reduce_mean(tf.square(td_error))
-        tf.summary.scalar('td_error', self.objective)
+        _objective = tf.reduce_mean(tf.square(self._td_error))
+        tf.summary.scalar('td_error', _objective)
 
         self._set_up_summaries()
 
@@ -97,14 +100,14 @@ class DQN(object):
 
 
         self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-3)
-        self.train_op = self.optimizer.minimize(self.objective,
+        self.train_op = self.optimizer.minimize(_objective,
                                                 var_list=self.Qnet.get_variables(),
                                                 global_step=self._weight_update_counter.var)
 
         self._sync_scopes_ops = self._get_sync_scopes_ops(to_scope='target_Q',
                                                           from_scope='Q')
 
-        self._saver = tf.train.Saver()
+        self._saver = tf.train.Saver(max_to_keep=5, keep_checkpoint_every_n_hours=10./60.)
         self._sequence_buffer = Buffer(maxlen=state_sequence_length)
         self._replay_buffer = Buffer(maxlen=1000)
         self._episode_reward_buffer = Buffer(maxlen=None)
@@ -158,8 +161,8 @@ class DQN(object):
         self._merged_summaries = tf.summary.merge_all()
 
     def train(self, batch_size, epsilon, debug=False):
-        #get a batch of data randomly from the replay buffer:
-        data = self._replay_buffer.sample(N=batch_size)
+        data = self._replay_buffer.sample(N=batch_size, mode='prioritized')
+
         s, a, r, d, s_tp1  = list(map(list, zip(*data))) #transpose the list of lists
         if debug:
             print("-"*50)
@@ -177,10 +180,13 @@ class DQN(object):
         }
 
         if self._weight_update_counter.eval() % 100 == 0:
-            _, summaries = self._sess.run([self.train_op, self._merged_summaries ], feed_dict=feed_dict)
+            _, summaries, _td_error = self._sess.run([self.train_op, self._merged_summaries, self._td_error],
+                                                     feed_dict=feed_dict)
             self._summary_writer.add_summary(summaries, self._total_step_counter.eval())
         else:
-            _ = self._sess.run([self.train_op], feed_dict=feed_dict)
+            _, _td_error = self._sess.run([self.train_op, self._td_error], feed_dict=feed_dict)
+        if self._flags['prioritized_buffer']:
+            self._replay_buffer.set_priorities_of_last_returned_sample(p=_td_error**2)
 
 
 
@@ -211,14 +217,15 @@ class DQN(object):
         logging.debug("End of episode {}".format(self._sess.run(self._episode_counter.val)))
         self._sess.run(self._episode_counter.inc)
 
-        #SUMMARIES
-        summary = tf.Summary()
-        r, _ = self._episode_reward_buffer.dump()
-        summary.value.add(tag='reward', simple_value=sum(r))
-        summary.value.add(tag='episode_length', simple_value=self._env_step_counter.eval())
-        self._summary_writer.add_summary(summary, self._total_step_counter.eval())
+        if self._episode_counter.eval() % 10 == 1:
+            #SUMMARIES
+            summary = tf.Summary()
+            r, _ = self._episode_reward_buffer.dump()
+            summary.value.add(tag='reward', simple_value=sum(r))
+            summary.value.add(tag='episode_length', simple_value=self._env_step_counter.eval())
+            self._summary_writer.add_summary(summary, self._total_step_counter.eval())
 
-        self._saver.save(self._sess, './' + self._checkpoint_path + '/chkpt', global_step=self._episode_counter.eval())
+            self._saver.save(self._sess, './' + self._checkpoint_path + '/chkpt', global_step=self._episode_counter.eval())
 
     def _start_of_episode(self):
         self._sess.run(self._env_step_counter.res)

@@ -1,3 +1,4 @@
+import logging
 import collections
 import os
 import numpy as np
@@ -24,10 +25,6 @@ class LinearSchedule(object):
         v = max(v, self.end)
         return v
 
-
-
-
-
 def get_log_path(logdir, prefix='run_'):
     try:
         os.mkdir(logdir)
@@ -38,6 +35,9 @@ def get_log_path(logdir, prefix='run_'):
         return os.path.abspath(logdir) + '/' + prefix + str(max(nums)+1).zfill(2)
     else:
         return os.path.abspath(logdir) + '/' + prefix + str(0).zfill(2)
+
+
+
 
 class Buffer(object):
     def __init__(self, maxlen, prioritized=False):
@@ -72,12 +72,26 @@ class Buffer(object):
         """Return the data without removing from the buffer"""
         return list(self.__data), list(self.__prior)
 
+    def set_priorities_of_last_returned_sample(self, p):
+        for p_index, buffer_index in enumerate(self._last_returned_indices):
+            self.__prior[buffer_index] = p[p_index]
+
     @property
     def size(self):
         return len(self.__data)
 
-    def sample(self, N, random=True):
-        if random:
+    def sample(self, N, mode='random'):
+        if mode=='random':
             indices = np.random.choice(len(self.__data), size=N)
             batch = [self.__data[i] for i in indices]
             return batch
+        elif mode=='prioritized':
+            p_normed = np.array(self.__prior)
+            p_normed = p_normed / p_normed.sum()
+            indices = np.random.choice(len(self.__data), size=N, p=p_normed)
+            batch = [self.__data[i] for i in indices]
+        else:
+            logging.error("Sampling mode {} unrecognized".format(mode))
+            raise NotImplementedError
+        self._last_returned_indices = indices
+        return batch
