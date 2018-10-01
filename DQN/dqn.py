@@ -150,8 +150,8 @@ class DQN(object):
             except:
                 logging.warning("Variable restoration/ FAILED. Initializing variables instead.")
                 sess.run(tf.global_variables_initializer())
-            else:
-                sess.run(tf.global_variables_initializer())
+        else:
+            sess.run(tf.global_variables_initializer())
 
         self._summary_writer = tf.summary.FileWriter(get_log_path('./logs','run_'),
                                                      self._sess.graph, flush_secs=5)
