@@ -77,7 +77,7 @@ class DQN(object):
                                    reuse=False
                                    )
 
-        if self._flags['double_q_learning']:
+        if self._flags.get('double_q_learning', False):
             """Double Qnet takes the NEXT state, and uses the online
                network to predict the Q values"""
             self.double_Qnet = DenseNN(in_=self._ph.state_tp1_in,
@@ -102,7 +102,7 @@ class DQN(object):
         max_over_actions_target_net = tf.reduce_max(self.offline_Qnet.output, axis=1)
         Q_value_targ = max_over_actions_target_net
 
-        if self._flags['double_q_learning']:
+        if self._flags.get('double_q_learning', False):
             index_of_best_action_according_to_Qnet = tf.argmax(self.double_Qnet.output, axis=1)
             q_value_of_this_action_according_to_targ_Qnet = tf.reduce_sum(tf.one_hot(index_of_best_action_according_to_Qnet, depth=self.online_Qnet.output.shape[1])*self.offline_Qnet.output, axis=1)
             Q_value_targ = q_value_of_this_action_according_to_targ_Qnet
@@ -138,7 +138,7 @@ class DQN(object):
         self._sequence_buffer = Buffer(maxlen=state_sequence_length)
         self._replay_buffer = Buffer(maxlen=10000)
         self._episode_reward_buffer = Buffer(maxlen=None)
-        self._multi_steps_buffer = Buffer(maxlen=self._flags['multi_steps_n'])
+        self._multi_steps_buffer = Buffer(maxlen=self._flags.get('multi_steps_n', 1))
 
 
     def _get_sync_scopes_ops(self, from_scope, to_scope):
@@ -183,11 +183,13 @@ class DQN(object):
         else:
             sess.run(tf.global_variables_initializer())
 
-        self._summary_writer = tf.summary.FileWriter(get_log_path('./logs','run_'),
-                                                     self._sess.graph, flush_secs=5)
+        self._summary_writer = tf.summary.FileWriter(get_log_path('./logs',self._flags.get('name_prefix', 'run_')),
+                                                     self._sess.graph, flush_secs=1)
         self._merged_summaries = tf.summary.merge_all()
 
-
+    def discount_rewards(self, R):
+        R_ = np.array(R)*self._gamma**np.arange(len(R))
+        return R_
 
     def train(self, batch_size, epsilon, debug=False):
         data = self._replay_buffer.sample(N=batch_size, mode='prioritized')

@@ -76,10 +76,14 @@ if __name__=='__main__':
 
                 dqn._multi_steps_buffer.add((obs_seq, action, reward, done, obs_seq_tp1), add_until_full=False)
                 if dqn._multi_steps_buffer.is_full:
-                    #(_o, _a, _r, _d, _otp1), _ = dqn._multi_steps_buffer.popleft(1)
+                    _ds, _ps = dqn._multi_steps_buffer.dump()  # get current contents of buffer, don't modify
+                    _rewards = [_ds[i][2] for i in range(len(_ds))]  #extract just the rewards (the third column)
+                    _rewards = dqn.discount_rewards(_rewards) #discount the rewards
+                    _reward = np.sum(_rewards)
+
                     _d, _p = dqn._multi_steps_buffer.popleft(1)
                     _o, _a, _r, _d, _otp1 = _d[0]
-                    dqn._replay_buffer.add((_o, _a, _r, _d, _otp1), add_until_full=False)
+                    dqn._replay_buffer.add((_o, _a, _reward, _d, _otp1), add_until_full=False)
 
                 if dqn._total_step_counter.eval()%TRAINING_FREQ==0:
                     if dqn._replay_buffer.is_full:

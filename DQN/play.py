@@ -26,10 +26,13 @@ RESTORE = True
 """Number of episodes to play, with an env.reset() between"""
 EPISODES = 1
 
+FLAGS = {'name_prefix':'inference_'}
+
+
 if __name__=='__main__':
 
     dqn = DQN(env=env, restore=RESTORE, state_sequence_length=STATE_SEQ_LENGTH,
-              checkpoint_path=CHKPT_PATH)
+              checkpoint_path=CHKPT_PATH, flags=FLAGS)
 
     with tf.Session() as sess:
         dqn.attach_session(sess)
