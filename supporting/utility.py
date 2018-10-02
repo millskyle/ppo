@@ -5,6 +5,20 @@ import numpy as np
 import time
 
 
+class DutyCycle(object):
+    def __init__(self, period):
+        self._queue = []
+        self._period = int(period)
+
+    def get(self, prob):
+        if len(self._queue)==0:
+            self._queue = [np.floor((x + prob*self._period)/self._period) for x in range(self._period)]
+
+        return self._queue.pop(0)
+
+
+
+
 class ParameterOverrideFile(object):
     def __init__(self, name, refresh_frequency=10):
         self._name = name
@@ -68,7 +82,12 @@ class Buffer(object):
         self.__data = collections.deque(maxlen=maxlen)
         self.__prior = collections.deque(maxlen=maxlen)
 
-    def add(self, point, priority=100., add_until_full=True):
+    def add(self, point, priority=None, add_until_full=True):
+        if priority is None:
+            if self.size>0:
+                priority = max(self.__prior)
+            else:
+                priority = 1.0
         self.__data.append(point)
         self.__prior.append(priority)
         if add_until_full:

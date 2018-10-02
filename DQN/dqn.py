@@ -196,8 +196,9 @@ class DQN(object):
         else:
             _, _td_error = self._sess.run([self.train_op, self._td_error], feed_dict=feed_dict)
 
+
         if self._flags['prioritized_buffer']:
-            self._replay_buffer.set_priorities_of_last_returned_sample(p=_td_error**2)
+            self._replay_buffer.set_priorities_of_last_returned_sample(p=np.abs(_td_error))
 
 
 

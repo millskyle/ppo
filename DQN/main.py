@@ -5,8 +5,9 @@ import gym
 import kmgym
 import logging
 import sys
+import progressbar
 sys.path.append("..")
-from supporting.utility import LinearSchedule, ParameterOverrideFile
+from supporting.utility import LinearSchedule, ParameterOverrideFile, DutyCycle
 import colored_traceback.auto
 
 logging.basicConfig(level=logging.INFO)
@@ -15,20 +16,21 @@ logging.basicConfig(level=logging.INFO)
     sets up the policy networks, training algorithm, etc.
 """
 
-EPISODES = 10000
+EPISODES = 1000
 CHKPT_PATH = './models/'
 RESTORE = False
-BATCH_SIZE=64
+BATCH_SIZE=256
 Q_SYNC_FREQ = 1  #number of *episodes* between syncronization of Q functions
 TRAINING_FREQ = 4 #Train after this many total steps
 
-epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(1e5))
+epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(40000))
 epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=10)
 
 STATE_SEQ_LENGTH = 1  # each state will be made up of this many "observations"
 
 FLAGS = {'prioritized_buffer': True,
          'double_q_learning': True,
+         'adaptive_epsilon':True,
         }
 
 
@@ -47,7 +49,8 @@ if __name__=='__main__':
     with tf.Session() as sess:
         dqn.attach_session(sess)
 
-        for ep in range(EPISODES):
+        bar = progressbar.ProgressBar()
+        for ep in bar(range(EPISODES)):
             obs = env.reset()
             #add observation to the sequence buffer
             dqn._sequence_buffer.add(obs)
@@ -58,7 +61,8 @@ if __name__=='__main__':
                 dqn._before_env_step()
                 obs_seq, _ = dqn._sequence_buffer.dump()
                 #request the index of the action
-                action = dqn.get_action(obs_seq, epsilon=epsilon_from_file.get(fallback=epsilon.val(dqn._total_step_counter.eval())))
+                this_epsilon = epsilon_from_file.get(fallback=epsilon.val(dqn._total_step_counter.eval()))
+                action = dqn.get_action(obs_seq, epsilon=this_epsilon)
 
                 #take the action
                 next_obs, reward, done, info = env.step(action)
@@ -71,7 +75,7 @@ if __name__=='__main__':
                 if dqn._total_step_counter.eval()%TRAINING_FREQ==0:
                     if dqn._replay_buffer.is_full:
                         logging.debug("{} in buffer. Training...".format(dqn._replay_buffer.size))
-                        dqn.train(BATCH_SIZE, epsilon=epsilon_from_file.get(fallback=epsilon.val(dqn._total_step_counter.eval())))
+                        dqn.train(BATCH_SIZE, epsilon=this_epsilon)
                     else:
                         logging.debug("Filling replay buffer with experiences - size: {}".format(dqn._replay_buffer.size))
 
