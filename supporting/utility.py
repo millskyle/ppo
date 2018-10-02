@@ -67,7 +67,12 @@ def get_log_path(logdir, prefix='run_'):
         os.mkdir(logdir)
     except:
         pass
-    nums = [ int(s.replace(prefix, '')) for s in os.listdir(logdir) ]
+    dirs=[]
+    for dir in os.listdir(logdir):
+        if prefix in dir:
+            dirs.append(dir)
+
+    nums = [ int(s.replace(prefix, '')) for s in dirs ]
     if len(nums) > 0:
         return os.path.abspath(logdir) + '/' + prefix + str(max(nums)+1).zfill(2)
     else:
