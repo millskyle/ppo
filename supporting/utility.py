@@ -111,6 +111,11 @@ class Buffer(object):
         Ps = [self.__prior.pop() for _ in range(N)]
         return Ds, Ps
 
+    def popleft(self, N):
+        Ds = [self.__data.popleft() for _ in range(N)]
+        Ps = [self.__prior.popleft() for _ in range(N)]
+        return Ds, Ps
+
     def dump(self):
         """Return the data without removing from the buffer"""
         return list(self.__data), list(self.__prior)

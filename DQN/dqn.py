@@ -187,6 +187,8 @@ class DQN(object):
                                                      self._sess.graph, flush_secs=5)
         self._merged_summaries = tf.summary.merge_all()
 
+
+
     def train(self, batch_size, epsilon, debug=False):
         data = self._replay_buffer.sample(N=batch_size, mode='prioritized')
 

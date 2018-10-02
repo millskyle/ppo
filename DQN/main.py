@@ -76,8 +76,8 @@ if __name__=='__main__':
 
                 dqn._multi_steps_buffer.add((obs_seq, action, reward, done, obs_seq_tp1), add_until_full=False)
                 if dqn._multi_steps_buffer.is_full:
-
-                dqn._replay_buffer.add(
+                    (_o, _a, _r, _d, _otp1), _ = dqn._multi_steps_buffer.popleft(1)
+                    dqn._replay_buffer.add((_o, _a, _r, _d, _otp1), add_until_full=False)
 
                 if dqn._total_step_counter.eval()%TRAINING_FREQ==0:
                     if dqn._replay_buffer.is_full:
@@ -93,4 +93,3 @@ if __name__=='__main__':
                 if done:
                     break
             dqn._end_of_episode()
-
