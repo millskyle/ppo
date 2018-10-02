@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 from dqn import DQN
 import gym
-import kmgym
 import logging
 import sys
 import progressbar
@@ -14,23 +13,23 @@ logging.basicConfig(level=logging.INFO)
 
 """ Main file that initializes an environment,
     sets up the policy networks, training algorithm, etc.
+s
 """
 
-EPISODES = 1000
+TOTAL_STEPS = 10*200
 CHKPT_PATH = './models/'
 RESTORE = False
 BATCH_SIZE=256
 Q_SYNC_FREQ = 1  #number of *episodes* between syncronization of Q functions
 TRAINING_FREQ = 4 #Train after this many total steps
 
-epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(40000))
-epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=10)
+epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(50000))
+epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.01)
 
 STATE_SEQ_LENGTH = 1  # each state will be made up of this many "observations"
 
 FLAGS = {'prioritized_buffer': True,
          'double_q_learning': True,
-         'adaptive_epsilon':True,
         }
 
 
@@ -39,6 +38,7 @@ FLAGS = {'prioritized_buffer': True,
 #env = gym.make('Carnot-v1')
 #env = gym.make('Debug-v0')
 env = gym.make('CartPole-v0')
+bar = progressbar.ProgressBar(max_value=TOTAL_STEPS)
 #env = gym.make('KBlocker-v0')
 
 if __name__=='__main__':
@@ -49,8 +49,8 @@ if __name__=='__main__':
     with tf.Session() as sess:
         dqn.attach_session(sess)
 
-        bar = progressbar.ProgressBar()
-        for ep in bar(range(EPISODES)):
+        while dqn._total_step_counter.eval() < TOTAL_STEPS:
+            bar.update(dqn._total_step_counter.eval())
             obs = env.reset()
             #add observation to the sequence buffer
             dqn._sequence_buffer.add(obs)

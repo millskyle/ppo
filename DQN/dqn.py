@@ -36,6 +36,8 @@ class Counter(object):
         assert self.__sess is not None, "You must attach a session to the counter by calling attach_session() before you can use the eval() method."
         return self.__sess.run(self.__mode_dict[mode])
 
+
+
 class DQN(object):
     def __init__(self, env, restore=True, state_sequence_length=1,
                  checkpoint_path=None, gamma=0.95, flags={}):
@@ -56,7 +58,7 @@ class DQN(object):
         self._ph = Placeholders(env=self._env, state_sequence_length=state_sequence_length)
 
         self.online_Qnet = DenseNN(in_=self._ph.state_in,
-                                   units=[400,400,self._env.action_space.n],
+                                   units=[128,128,self._env.action_space.n],
                                    activations=[tf.nn.selu,]*3,# + [None],
                                    scope='Q',
                                    reuse=False
@@ -66,14 +68,14 @@ class DQN(object):
             """Double Qnet takes the NEXT state, and uses the online
                network to predict the Q values"""
             self.double_Qnet = DenseNN(in_=self._ph.state_tp1_in,
-                                       units=[400,400,self._env.action_space.n],
+                                       units=[128,128,self._env.action_space.n],
                                        activations=[tf.nn.selu,]*3,# + [None],
                                        scope='Q',
                                        reuse=True  #Make sure to use the same weights!
                                        )
 
         self.offline_Qnet = DenseNN(in_=self._ph.state_tp1_in,
-                                    units=[400,400,self._env.action_space.n],
+                                    units=[128,128,self._env.action_space.n],
                                     activations=[tf.nn.selu,]*3,# + [None],
                                     scope='target_Q',
                                     reuse=False
@@ -111,7 +113,7 @@ class DQN(object):
             logging.debug(var.name)
 
 
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-3)
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
         self.train_op = self.optimizer.minimize(_objective,
                                                 var_list=self.online_Qnet.get_variables(),
                                                 global_step=self._weight_update_counter.var)
@@ -203,20 +205,16 @@ class DQN(object):
 
 
     def get_action(self, observation, epsilon=0.0, debug=False, summary=True):
-        obs = np.expand_dims(observation, 0) #make the single state into a "batch" of size 1
 
-        Q_vals = self._sess.run(self.online_Qnet.output, feed_dict={
-                                   self._ph.state_in: obs
-                                   })
 
-        if self._epsilon_override is not None:
-            epsilon = min(max(self._epsilon_override, 0.0),1.0)
+        #if self._epsilon_override is not None:
+        #epsilon = min(max(self._epsilon_override, 0.0),1.0)
 
-        if summary and self._episode_counter.eval() % 10 == 1:
+        if summary and self._episode_counter.eval() % 100 == 1:
             #SUMMARIES
             summary = tf.Summary()
-            summary.value.add(tag='intermediate/Q_a1', simple_value=Q_vals[0][0])
-            summary.value.add(tag='intermediate/Q_a2', simple_value=Q_vals[0][1])
+            #summary.value.add(tag='intermediate/Q_a1', simple_value=Q_vals[0][0])
+            #summary.value.add(tag='intermediate/Q_a2', simple_value=Q_vals[0][1])
             summary.value.add(tag='param/exploration', simple_value=epsilon)
             self._summary_writer.add_summary(summary, self._total_step_counter.eval())
 
@@ -225,6 +223,10 @@ class DQN(object):
             #random action:
             a_t = self._env.action_space.sample()
         else:
+            obs = np.expand_dims(observation, 0) #make the single state into a "batch" of size 1
+            Q_vals = self._sess.run(self.online_Qnet.output, feed_dict={
+                                   self._ph.state_in: obs
+                                   })
             a_t = np.argmax(Q_vals)
 
         return a_t
@@ -235,7 +237,7 @@ class DQN(object):
         logging.debug("End of episode {}".format(self._sess.run(self._episode_counter.val)))
         self._sess.run(self._episode_counter.inc)
 
-        if self._episode_counter.eval() % 10 == 1:
+        if self._episode_counter.eval() % 1 == 0:
             #SUMMARIES
             summary = tf.Summary()
             r, _ = self._episode_reward_buffer.dump()
@@ -259,6 +261,7 @@ class DQN(object):
     def _before_env_step(self):
         self._sess.run(self._env_step_counter.inc)
         self._sess.run(self._total_step_counter.inc)
+        pass
 
     def _after_env_step(self, reward=None):
         if reward is not None:
