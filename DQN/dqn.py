@@ -17,6 +17,8 @@ class Placeholders(object):
         self.reward_in = tf.placeholder(tf.float32, shape=[None,], name='reward_in')
         self.done_in = tf.placeholder(tf.bool, shape=[None,], name='done_in')
 
+
+
 class Counter(object):
     def __init__(self, name, init_=0):
         self.var = tf.Variable(init_, trainable=False, name=name + '_counter') #variable
@@ -28,13 +30,24 @@ class Counter(object):
                             'value':self.val,
                             'reset':self.res
                             }
+        self._needs_reeval = True
+
+    def incr(self):
+        self._check_session()
+        self.__sess.run(self.inc)
+        self._needs_reeval = True
 
     def attach_session(self, sess):
         self.__sess = sess
 
-    def eval(self, mode='value'):
+    def _check_session(self):
         assert self.__sess is not None, "You must attach a session to the counter by calling attach_session() before you can use the eval() method."
-        return self.__sess.run(self.__mode_dict[mode])
+
+    def eval(self):
+        if self._needs_reeval:
+            self._check_session()
+            self._last_val = self.__sess.run(self.val)
+        return self._last_val
 
 
 
@@ -125,6 +138,7 @@ class DQN(object):
         self._sequence_buffer = Buffer(maxlen=state_sequence_length)
         self._replay_buffer = Buffer(maxlen=10000)
         self._episode_reward_buffer = Buffer(maxlen=None)
+        self._multi_steps_buffer = Buffer(maxlen=self._flags['multi_steps_n'])
 
 
     def _get_sync_scopes_ops(self, from_scope, to_scope):
@@ -235,7 +249,7 @@ class DQN(object):
 #HOOKS:
     def _end_of_episode(self):
         logging.debug("End of episode {}".format(self._sess.run(self._episode_counter.val)))
-        self._sess.run(self._episode_counter.inc)
+        self._episode_counter.incr()
 
         if self._episode_counter.eval() % 1 == 0:
             #SUMMARIES
@@ -259,9 +273,8 @@ class DQN(object):
 
 
     def _before_env_step(self):
-        self._sess.run(self._env_step_counter.inc)
-        self._sess.run(self._total_step_counter.inc)
-        pass
+        self._env_step_counter.incr()
+        self._total_step_counter.incr()
 
     def _after_env_step(self, reward=None):
         if reward is not None:

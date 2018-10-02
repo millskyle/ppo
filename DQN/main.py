@@ -16,12 +16,13 @@ logging.basicConfig(level=logging.INFO)
 s
 """
 
-TOTAL_STEPS = 10*200
+TOTAL_STEPS = 50000
 CHKPT_PATH = './models/'
 RESTORE = False
 BATCH_SIZE=256
-Q_SYNC_FREQ = 1  #number of *episodes* between syncronization of Q functions
+Q_SYNC_FREQ = 16  #number of *steps* between syncronization of Q functions
 TRAINING_FREQ = 4 #Train after this many total steps
+
 
 epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(50000))
 epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.01)
@@ -30,6 +31,7 @@ STATE_SEQ_LENGTH = 1  # each state will be made up of this many "observations"
 
 FLAGS = {'prioritized_buffer': True,
          'double_q_learning': True,
+         'multi_steps_n': 5,
         }
 
 
@@ -67,10 +69,15 @@ if __name__=='__main__':
                 #take the action
                 next_obs, reward, done, info = env.step(action)
                 dqn._after_env_step(reward=reward)
+
+
                 dqn._sequence_buffer.add(next_obs)
                 obs_seq_tp1, _ = dqn._sequence_buffer.dump()
 
-                dqn._replay_buffer.add((obs_seq, action, reward, done, obs_seq_tp1), add_until_full=False)
+                dqn._multi_steps_buffer.add((obs_seq, action, reward, done, obs_seq_tp1), add_until_full=False)
+                if dqn._multi_steps_buffer.is_full:
+
+                dqn._replay_buffer.add(
 
                 if dqn._total_step_counter.eval()%TRAINING_FREQ==0:
                     if dqn._replay_buffer.is_full:
@@ -79,10 +86,11 @@ if __name__=='__main__':
                     else:
                         logging.debug("Filling replay buffer with experiences - size: {}".format(dqn._replay_buffer.size))
 
+                if dqn._total_step_counter.eval() % Q_SYNC_FREQ==0:
+                    logging.debug("Syncing Qtarg <-- Q")
+                    sess.run(dqn._sync_scopes_ops)
 
                 if done:
                     break
             dqn._end_of_episode()
-            if dqn._episode_counter.eval() % Q_SYNC_FREQ==0:
-                logging.debug("Syncing Qtarg <-- Q")
-                sess.run(dqn._sync_scopes_ops)
+
