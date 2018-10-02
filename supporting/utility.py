@@ -45,11 +45,11 @@ class Buffer(object):
         self.__data = collections.deque(maxlen=maxlen)
         self.__prior = collections.deque(maxlen=maxlen)
 
-    def add(self, point, priority=1, add_until_full=True):
+    def add(self, point, priority=100., add_until_full=True):
         self.__data.append(point)
         self.__prior.append(priority)
         if add_until_full:
-            while not(self.is_full()):
+            while not(self.is_full):
                 self.__data.append(point)
                 self.__prior.append(priority)
 
@@ -60,8 +60,9 @@ class Buffer(object):
         self.__prior.clear()
         return D, P
 
+    @property
     def is_full(self):
-        return len(self.__data)==self.__maxlen
+        return self.size==self.__maxlen
 
     def pop(self, N):
         Ds = [self.__data.pop() for _ in range(N)]

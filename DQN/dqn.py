@@ -16,7 +16,6 @@ class Placeholders(object):
         self.action_in = tf.placeholder(tf.int64, shape=[None,], name='action_in')
         self.reward_in = tf.placeholder(tf.float32, shape=[None,], name='reward_in')
         self.done_in = tf.placeholder(tf.bool, shape=[None,], name='done_in')
-        self.epsilon = tf.placeholder(tf.float32, shape=[], name='current_exploration_probability')
 
 class Counter(object):
     def __init__(self, name, init_=0):
@@ -46,6 +45,7 @@ class DQN(object):
         self._checkpoint_path = checkpoint_path
         self._gamma = gamma
         self._flags = flags
+        self._epsilon_override = None
 
         self._episode_counter = Counter('episode')
         self._env_step_counter = Counter('env_step')
@@ -55,35 +55,47 @@ class DQN(object):
 
         self._ph = Placeholders(env=self._env, state_sequence_length=state_sequence_length)
 
-        self.Qnet = DenseNN(in_=self._ph.state_in,
-                            units=[400,400,self._env.action_space.n],
-                            activations=[tf.nn.selu,]*3,# + [None],
-                            scope='Q',
-                            reuse=False
-                            )
+        self.online_Qnet = DenseNN(in_=self._ph.state_in,
+                                   units=[400,400,self._env.action_space.n],
+                                   activations=[tf.nn.selu,]*3,# + [None],
+                                   scope='Q',
+                                   reuse=False
+                                   )
 
-        self.a_t = tf.cond(pred=(self._ph.epsilon < tf.random_uniform(shape=[])),
-                           true_fn=lambda: tf.argmax(self.Qnet.output)[1],
-                           false_fn=lambda: tf.random_uniform(shape=[],dtype=tf.int64,minval=0, maxval=self._env.action_space.n)
-                           )
+        if self._flags['double_q_learning']:
+            """Double Qnet takes the NEXT state, and uses the online
+               network to predict the Q values"""
+            self.double_Qnet = DenseNN(in_=self._ph.state_tp1_in,
+                                       units=[400,400,self._env.action_space.n],
+                                       activations=[tf.nn.selu,]*3,# + [None],
+                                       scope='Q',
+                                       reuse=True  #Make sure to use the same weights!
+                                       )
 
-        self.targ_Qnet = DenseNN(in_=self._ph.state_tp1_in,
-                            units=[400,400,self._env.action_space.n],
-                            activations=[tf.nn.selu,]*3,# + [None],
-                            scope='target_Q',
-                            reuse=False
-                            )
+        self.offline_Qnet = DenseNN(in_=self._ph.state_tp1_in,
+                                    units=[400,400,self._env.action_space.n],
+                                    activations=[tf.nn.selu,]*3,# + [None],
+                                    scope='target_Q',
+                                    reuse=False
+                                    )
 
 
         #Let's slowly build the _td_error so we can see the shapes
         #for debugging
         rj = self._ph.reward_in
         done_mask = tf.to_float(tf.logical_not(self._ph.done_in))
-        max_over_actions_target_net = tf.reduce_max(self.targ_Qnet.output, axis=1)
-        q_value_of_the_action_we_took = tf.reduce_sum(tf.one_hot(self._ph.action_in, depth=self.Qnet.output.shape[1])*self.Qnet.output, axis=1)
+        max_over_actions_target_net = tf.reduce_max(self.offline_Qnet.output, axis=1)
+        Q_value_targ = max_over_actions_target_net
+
+        if self._flags['double_q_learning']:
+            index_of_best_action_according_to_Qnet = tf.argmax(self.double_Qnet.output, axis=1)
+            q_value_of_this_action_according_to_targ_Qnet = tf.reduce_sum(tf.one_hot(index_of_best_action_according_to_Qnet, depth=self.online_Qnet.output.shape[1])*self.offline_Qnet.output, axis=1)
+            Q_value_targ = q_value_of_this_action_according_to_targ_Qnet
+
+        q_value_of_the_action_we_took = tf.reduce_sum(tf.one_hot(self._ph.action_in, depth=self.online_Qnet.output.shape[1])*self.online_Qnet.output, axis=1)
 
         #y_j in the DQN paper:
-        yj = rj + done_mask * self._gamma * max_over_actions_target_net
+        yj = rj + done_mask * self._gamma * Q_value_targ
 
         #td-error:
         self._td_error = yj - q_value_of_the_action_we_took
@@ -95,13 +107,13 @@ class DQN(object):
 
 
         logging.debug("Vars to optimize:")
-        for var in self.Qnet.get_variables():
+        for var in self.online_Qnet.get_variables():
             logging.debug(var.name)
 
 
         self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-3)
         self.train_op = self.optimizer.minimize(_objective,
-                                                var_list=self.Qnet.get_variables(),
+                                                var_list=self.online_Qnet.get_variables(),
                                                 global_step=self._weight_update_counter.var)
 
         self._sync_scopes_ops = self._get_sync_scopes_ops(to_scope='target_Q',
@@ -109,7 +121,7 @@ class DQN(object):
 
         self._saver = tf.train.Saver(max_to_keep=5, keep_checkpoint_every_n_hours=10./60.)
         self._sequence_buffer = Buffer(maxlen=state_sequence_length)
-        self._replay_buffer = Buffer(maxlen=1000)
+        self._replay_buffer = Buffer(maxlen=10000)
         self._episode_reward_buffer = Buffer(maxlen=None)
 
 
@@ -123,11 +135,10 @@ class DQN(object):
         return assign_ops
 
     def _set_up_summaries(self):
-        for var in self.Qnet.get_variables():
+        for var in self.online_Qnet.get_variables():
             tf.summary.histogram(var.name, var)
-        for var in self.targ_Qnet.get_variables():
+        for var in self.offline_Qnet.get_variables():
             tf.summary.histogram(var.name, var)
-        tf.summary.scalar('exploration', self._ph.epsilon)
         pass
 
     @property
@@ -176,7 +187,6 @@ class DQN(object):
             self._ph.reward_in:    np.array(r),
             self._ph.done_in:      np.array(d),
             self._ph.state_tp1_in: s_tp1,
-            self._ph.epsilon:      epsilon,
         }
 
         if self._weight_update_counter.eval() % 100 == 0:
@@ -185,23 +195,30 @@ class DQN(object):
             self._summary_writer.add_summary(summaries, self._total_step_counter.eval())
         else:
             _, _td_error = self._sess.run([self.train_op, self._td_error], feed_dict=feed_dict)
+
         if self._flags['prioritized_buffer']:
             self._replay_buffer.set_priorities_of_last_returned_sample(p=_td_error**2)
 
 
 
-    def get_action(self, observation, epsilon=0.0, debug=False, summary=False):
+    def get_action(self, observation, epsilon=0.0, debug=False, summary=True):
         obs = np.expand_dims(observation, 0) #make the single state into a "batch" of size 1
 
-        Q_vals = self._sess.run(self.Qnet.output, feed_dict={
+        Q_vals = self._sess.run(self.online_Qnet.output, feed_dict={
                                    self._ph.state_in: obs
                                    })
-        if summary:
+
+        if self._epsilon_override is not None:
+            epsilon = min(max(self._epsilon_override, 0.0),1.0)
+
+        if summary and self._episode_counter.eval() % 10 == 1:
             #SUMMARIES
             summary = tf.Summary()
-            summary.value.add(tag='Q_a1', simple_value=Q_vals[0][0])
-            summary.value.add(tag='Q_a2', simple_value=Q_vals[0][1])
+            summary.value.add(tag='intermediate/Q_a1', simple_value=Q_vals[0][0])
+            summary.value.add(tag='intermediate/Q_a2', simple_value=Q_vals[0][1])
+            summary.value.add(tag='param/exploration', simple_value=epsilon)
             self._summary_writer.add_summary(summary, self._total_step_counter.eval())
+
 
         if epsilon > np.random.rand():
             #random action:
@@ -221,8 +238,8 @@ class DQN(object):
             #SUMMARIES
             summary = tf.Summary()
             r, _ = self._episode_reward_buffer.dump()
-            summary.value.add(tag='reward', simple_value=sum(r))
-            summary.value.add(tag='episode_length', simple_value=self._env_step_counter.eval())
+            summary.value.add(tag='result/reward', simple_value=sum(r))
+            summary.value.add(tag='result/episode_length', simple_value=self._env_step_counter.eval())
             self._summary_writer.add_summary(summary, self._total_step_counter.eval())
 
             self._saver.save(self._sess, './' + self._checkpoint_path + '/chkpt', global_step=self._episode_counter.eval())
