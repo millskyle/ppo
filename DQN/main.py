@@ -78,7 +78,7 @@ if __name__=='__main__':
                 if dqn._multi_steps_buffer.is_full:
                     #(_o, _a, _r, _d, _otp1), _ = dqn._multi_steps_buffer.popleft(1)
                     _d, _p = dqn._multi_steps_buffer.popleft(1)
-
+                    _o, _a, _r, _d, _otp1 = _d
                     dqn._replay_buffer.add((_o, _a, _r, _d, _otp1), add_until_full=False)
 
                 if dqn._total_step_counter.eval()%TRAINING_FREQ==0:
