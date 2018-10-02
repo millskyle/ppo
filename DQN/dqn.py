@@ -263,6 +263,7 @@ class DQN(object):
             summary.value.add(tag='result/episode_length', simple_value=self._env_step_counter.eval())
             self._summary_writer.add_summary(summary, self._total_step_counter.eval())
 
+        if self._episode_counter.eval() % 50 == 0:
             self._saver.save(self._sess, './' + self._checkpoint_path + '/chkpt', global_step=self._episode_counter.eval())
 
     def _start_of_episode(self):
