@@ -2,6 +2,29 @@ import logging
 import collections
 import os
 import numpy as np
+import time
+
+
+class ParameterOverrideFile(object):
+    def __init__(self, name, refresh_frequency=10):
+        self._name = name
+        self._refresh_frequency = refresh_frequency
+        self._tic = time.time() - 99999.  #  a long time ago
+
+    def get(self, fallback=None):
+        if (time.time() - self._tic)  > self._refresh_frequency:
+            self._tic = time.time()
+            try:
+                logging.debug("Reading file {}".format(self._name))
+                val = float(open('./' + self._name, 'r').read())
+            except:
+                val = fallback
+            self._last_val = val
+        else:
+            val = self._last_val
+        return val
+
+
 
 def nonetoneg(l):
     """Replaces first occurring None value in list l with -1"""

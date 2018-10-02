@@ -39,3 +39,5 @@ If you use this code, you should probably cite the following papers, depending o
    - https://web.stanford.edu/class/psych209/Readings/MnihEtAlHassibis15NatureControlDeepRL.pdf
  - Prioritized buffer:
    - https://arxiv.org/abs/1511.05952
+- Double Q learning
+   - https://arxiv.org/abs/1509.06461
