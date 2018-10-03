@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 from dqn import DQN
 import gym
-import cleangym
 import logging
 import sys
 sys.path.append("..")
