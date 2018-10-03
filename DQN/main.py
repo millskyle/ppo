@@ -20,7 +20,7 @@ s
 TOTAL_STEPS = 200*1000
 CHKPT_PATH = './models/'
 RESTORE = False
-BATCH_SIZE=256
+BATCH_SIZE=16
 Q_SYNC_FREQ = 64  #number of *steps* between syncronization of Q functions
 TRAINING_FREQ = 4 #Train after this many total steps
 
