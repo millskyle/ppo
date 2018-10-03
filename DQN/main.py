@@ -5,12 +5,11 @@ import gym
 import cleangym
 import logging
 import sys
-import progressbar
 sys.path.append("..")
 from supporting.utility import LinearSchedule, ParameterOverrideFile, DutyCycle
 import colored_traceback.auto
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 """ Main file that initializes an environment,
     sets up the policy networks, training algorithm, etc.
@@ -32,15 +31,45 @@ FLAGS = {'prioritized_buffer': True,
          'double_q_learning': True,
          'multi_steps_n': 1,
          'name_prefix': 'ddqpb_',
-         'learning_rate': 1e-4,
+
          'state_seq_length': 1,
 #         'replay_buffer_size': 10000
+
+        #Neural network stuff:
+        'learning_rate': 1e-4,
+        'batch_size': 256,
+
+
         }
 
 env = gym.make('CartPole-v0')
 
+import progressbar
+class ProgressBar(object):
+    def __init__(self, maxval):
+        self._maxval = maxval
+        self._widgets = [ progressbar.FormatLabel('                   '), ' ',
+                          progressbar.Percentage(), ' ',
+                          progressbar.Bar(), ' '
+                        ]
+        self._bar = progressbar.ProgressBar(widgets=self._widgets, max_value=self._maxval)
+        self._bar.update(0)
+        self._last_val = 0
 
-bar = progressbar.ProgressBar(max_value=TOTAL_STEPS)
+    def update(self, val):
+        self._last_val = val
+        self._bar.update(val)
+
+
+    def status(self, status=""):
+        self._widgets[0] = progressbar.FormatLabel(status)
+        self._bar.update(self._last_val)
+
+
+
+
+bar = ProgressBar(maxval=TOTAL_STEPS)
+
 
 if __name__=='__main__':
 
@@ -74,6 +103,7 @@ if __name__=='__main__':
                 dqn._sequence_buffer.add(next_obs)
                 obs_seq_tp1, _ = dqn._sequence_buffer.dump()
 
+
                 dqn._multi_steps_buffer.add((obs_seq, action, reward, done, obs_seq_tp1), add_until_full=False)
                 if dqn._multi_steps_buffer.is_full:
                     _ds, _ps = dqn._multi_steps_buffer.dump()  # get current contents of buffer, don't modify
@@ -87,9 +117,10 @@ if __name__=='__main__':
 
                 if dqn._total_step_counter.eval()%TRAINING_FREQ==0:
                     if dqn._replay_buffer.is_full:
-                        logging.debug("{} in buffer. Training...".format(dqn._replay_buffer.size))
+                        bar.status("Training")
                         dqn.train(BATCH_SIZE, epsilon=this_epsilon)
                     else:
+                        bar.status("Filling replay buffer")
                         logging.debug("Filling replay buffer with experiences - size: {}".format(dqn._replay_buffer.size))
 
                 if dqn._total_step_counter.eval() % Q_SYNC_FREQ==0:
