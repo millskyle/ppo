@@ -6,7 +6,7 @@ import cleangym
 import logging
 import sys
 sys.path.append("..")
-from supporting.utility import LinearSchedule, ParameterOverrideFile, DutyCycle
+from supporting.utility import LinearSchedule, ExponentialSchedule, ParameterOverrideFile, DutyCycle
 from supporting.utility import ProgressBar
 import colored_traceback.auto
 
@@ -25,11 +25,14 @@ Q_SYNC_FREQ = 64  #number of *steps* between syncronization of Q functions
 TRAINING_FREQ = 4 #Train after this many total steps
 
 
-epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(0.75*TOTAL_STEPS))
+#epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(0.75*TOTAL_STEPS), name="$\epsilon$ schedule")
+epsilon = ExponentialSchedule(start=1.0, end=0.01, time_constant=int(0.2*TOTAL_STEPS), base=2., name="$\epsilon$ schedule")
+#epsilon.plot(np.arange(TOTAL_STEPS))
+
 epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.1)
 
-FLAGS = {'prioritized_buffer': True,
-         'double_q_learning': True,
+FLAGS = {'prioritized_buffer': False,
+         'double_q_learning': False,
          'multi_steps_n': 1,
          'name_prefix': 'ddqpb_',
 
@@ -38,8 +41,6 @@ FLAGS = {'prioritized_buffer': True,
 
         #Neural network stuff:
         'learning_rate': 1e-4,
-        'batch_size': 256,
-
 
         }
 

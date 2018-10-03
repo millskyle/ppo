@@ -159,6 +159,10 @@ class DQN(object):
         self._merged_summaries = tf.summary.merge_all()
 
     def discount_rewards(self, R):
+        """ R is a list of rewards to be discounted with R[-1]
+            being the most into the future (i.e. most heavily-discounted).
+            R[0] is not discounted
+        """
         R_ = np.array(R)*self._gamma**np.arange(len(R))
         return R_
 

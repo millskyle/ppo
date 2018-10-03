@@ -41,10 +41,32 @@ class DutyCycle(object):
 
         return self._queue.pop(0)
 
-class LinearSchedule(object):
-    def __init__(self, start, end, steps):
+class Schedule(object):
+    def __init__(self, name=""):
+        self._name = name
+        pass
+
+    def val(self, t):
+        return 0
+
+    def plot(self, ts):
+        import matplotlib.pyplot as plt
+        plt.ion()
+        ys = [self.val(t) for t in ts]
+        plt.xlabel("Step")
+        plt.ylabel(self._name)
+        plt.title(self._name)
+        plt.plot(ts, ys, lw=2)
+        plt.pause(0.000001)
+
+
+
+
+class LinearSchedule(Schedule):
+    def __init__(self, start, end, steps, *args, **kwargs):
         """Linear schedule, with a y-intercept of start, decreasing to end in steps steps. If evaluated
         at t > steps, end will be returned, e.g. val = max(val, end)"""
+        super().__init__(*args, **kwargs)
         self.start = start
         self.end = end
         self.steps = steps
@@ -54,6 +76,24 @@ class LinearSchedule(object):
         v = min(v, self.start)
         v = max(v, self.end)
         return v
+
+class ExponentialSchedule(Schedule):
+    def __init__(self, start, end, time_constant, base=2., *args, **kwargs):
+        """Exponential schedule, starting at start, decreasing to end in steps steps. If evaluated
+        at t > steps, end will be returned, e.g. val = max(val, end)"""
+        super().__init__(*args, **kwargs)
+        self.start = start
+        self.end = end
+        self.base = base
+        self.time_constant = time_constant
+
+    def val(self, t):
+        v = (self.start - self.end) * self.base**(-t/self.time_constant) + self.end
+        v = min(v, self.start)
+        v = max(v, self.end)
+        return v
+
+
 
 def get_log_path(logdir, prefix='run_'):
     """ Given a log directory and a prefix, create a new directory,
