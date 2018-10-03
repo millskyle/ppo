@@ -17,19 +17,16 @@ class Placeholders(object):
         self.action_in = tf.placeholder(tf.int64, shape=[None,], name='action_in')
         self.reward_in = tf.placeholder(tf.float32, shape=[None,], name='reward_in')
         self.done_in = tf.placeholder(tf.bool, shape=[None,], name='done_in')
-
-
-
+        self.gamma = tf.placeholder(tf.float32, shape=[], name='gamma')
 
 
 
 class DQN(object):
-    def __init__(self, env, restore=True, checkpoint_path=None, gamma=0.95, flags={}):
+    def __init__(self, env, restore=True, checkpoint_path=None, flags={}):
 
         self._env = env
         self.__restore = restore
         self._checkpoint_path = checkpoint_path
-        self._gamma = gamma
         self._flags = flags
         self._epsilon_override = None
 
@@ -81,7 +78,7 @@ class DQN(object):
         q_value_of_the_action_we_took = tf.reduce_sum(tf.one_hot(self._ph.action_in, depth=self.online_Qnet.output.shape[1])*self.online_Qnet.output, axis=1)
 
         #y_j in the DQN paper:
-        yj = rj + done_mask * self._gamma * Q_value_targ
+        yj = rj + done_mask * self._ph.gamma * Q_value_targ
 
         #td-error:
         self._td_error = yj - q_value_of_the_action_we_took
@@ -158,15 +155,15 @@ class DQN(object):
                                                      self._sess.graph, flush_secs=1)
         self._merged_summaries = tf.summary.merge_all()
 
-    def discount_rewards(self, R):
+    def discount_rewards(self, gamma, R):
         """ R is a list of rewards to be discounted with R[-1]
             being the most into the future (i.e. most heavily-discounted).
             R[0] is not discounted
         """
-        R_ = np.array(R)*self._gamma**np.arange(len(R))
+        R_ = np.array(R) * gamma**np.arange(len(R))
         return R_
 
-    def train(self, batch_size, epsilon, debug=False):
+    def train(self, batch_size, epsilon, gamma, debug=False):
         data = self._replay_buffer.sample(N=batch_size, mode='prioritized')
 
         s, a, r, d, s_tp1  = list(map(list, zip(*data))) #transpose the list of lists
@@ -182,6 +179,7 @@ class DQN(object):
             self._ph.reward_in:    np.array(r),
             self._ph.done_in:      np.array(d),
             self._ph.state_tp1_in: s_tp1,
+            self._ph.gamma: gamma,
         }
 
         if self._weight_update_counter.eval() % 100 == 0:

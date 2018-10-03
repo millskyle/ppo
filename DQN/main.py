@@ -1,4 +1,5 @@
 import tensorflow as tf
+import copy
 import numpy as np
 from dqn import DQN
 import gym
@@ -32,11 +33,12 @@ epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.1)
 
 FLAGS = {'prioritized_buffer': True,
          'double_q_learning': True,
-         'multi_steps_n': 3,
-         'name_prefix': 'ms3_',
+         'multi_steps_n': 1,
+         'name_prefix': 'ms1_',
 
          'state_seq_length': 1,
          'replay_buffer_size': 5000,
+        'gamma': 0.95,
 
         #Neural network stuff:
         'learning_rate': 1e-4,
@@ -44,7 +46,7 @@ FLAGS = {'prioritized_buffer': True,
         }
 
 env = gym.make('CartPole-v0')
-env = gym.make('KBlocker-v0')
+#env = gym.make('KBlocker-v0')
 
 
 
@@ -84,24 +86,22 @@ if __name__=='__main__':
                 dqn._sequence_buffer.add(next_obs)
                 obs_seq_tp1, _ = dqn._sequence_buffer.dump()
 
-
                 dqn._multi_steps_buffer.add((obs_seq, action, reward, done, obs_seq_tp1), add_until_full=False)
                 if dqn._multi_steps_buffer.is_full:
                     _ds, _ps = dqn._multi_steps_buffer.dump()  # get current contents of buffer, don't modify
-                    assert len(_ds) == FLAGS['multi_steps_n'], "ERROR"
                     _rewards = [_ds[i][2] for i in range(len(_ds))]  #extract just the rewards (the third column)
-                    _returns = dqn.discount_rewards(_rewards) #discount the rewards
-                    _return = np.sum(_returns)
-                    _otpN = _ds[-1][-1]
+                    _returns = dqn.discount_rewards(R=_rewards, gamma=FLAGS['gamma']) #discount the rewards
+                    _return = np.sum(_returns) 
+                    _otpN = copy.deepcopy(_ds[-1][-1])  #t+N is the last column of the last row
 
-                    _d, _p = dqn._multi_steps_buffer.popleft(1)
-                    _o, _a, _r, _d, _otp1 = _d[0]
+                    _data, _ = dqn._multi_steps_buffer.popleft(1)
+                    _o, _a, _r, _d, _otp1 = _data[0]
                     dqn._replay_buffer.add((_o, _a, _return, _d, _otpN), add_until_full=False)
 
                 if dqn._total_step_counter.eval()%TRAINING_FREQ==0:
                     if dqn._replay_buffer.size > BATCH_SIZE:
                         bar.status("Training")
-                        dqn.train(BATCH_SIZE, epsilon=this_epsilon)
+                        dqn.train(BATCH_SIZE, epsilon=this_epsilon, gamma=FLAGS['gamma']**FLAGS.get('multi_steps_n',1.0))
                     else:
                         bar.status("Filling replay buffer")
                         logging.debug("Filling replay buffer with experiences - size: {}".format(dqn._replay_buffer.size))
