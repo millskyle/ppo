@@ -3,9 +3,12 @@ import collections
 import os
 import numpy as np
 import time
+import tensorflow as tf
 
 
 class DutyCycle(object):
+    """ Return a "step function" of ones and zeros, with proportion (duty cycle)
+        proportional to the probablility specified when get() is called. """
     def __init__(self, period):
         self._queue = []
         self._period = int(period)
@@ -31,6 +34,9 @@ class LinearSchedule(object):
         return v
 
 def get_log_path(logdir, prefix='run_'):
+    """ Given a log directory and a prefix, create a new directory,
+    incrementing the ending prefix if a prefix_NN directory already exists
+    in logdir """
     try:
         os.mkdir(logdir)
     except:
