@@ -10,7 +10,7 @@ sys.path.append("..")
 from supporting.utility import LinearSchedule, ParameterOverrideFile, DutyCycle
 import colored_traceback.auto
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 """ Main file that initializes an environment,
     sets up the policy networks, training algorithm, etc.
@@ -28,13 +28,13 @@ TRAINING_FREQ = 4 #Train after this many total steps
 epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(0.75*TOTAL_STEPS))
 epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.1)
 
-FLAGS = {'prioritized_buffer': False,
-         'double_q_learning': False,
+FLAGS = {'prioritized_buffer': True,
+         'double_q_learning': True,
          'multi_steps_n': 1,
-         'name_prefix': 'base_',
+         'name_prefix': 'ddqpb_',
          'learning_rate': 1e-4,
-
-         'state_seq_length': 1
+         'state_seq_length': 1,
+#         'replay_buffer_size': 10000
         }
 
 env = gym.make('CartPole-v0')
@@ -69,7 +69,8 @@ if __name__=='__main__':
                 #The "sequence buffer" holds the last t frames,
                 #so that the observation can be comprised of multiple
                 #states (e.g. history) as was done in the original dqn
-                #paper.  Setting
+                #paper.  Setting 'state_seq_length':1 will effectively
+                #disable this.
                 dqn._sequence_buffer.add(next_obs)
                 obs_seq_tp1, _ = dqn._sequence_buffer.dump()
 

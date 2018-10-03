@@ -96,7 +96,7 @@ class DQN(object):
         for var in self.online_Qnet.get_variables():
             logging.debug(var.name)
 
-
+        logging.debug("Setting up optimizer with learning rate {}".format(self._flags.get('learning_rate', 1e-3)))
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self._flags.get('learning_rate', 1e-3))
         self.train_op = self.optimizer.minimize(_objective,
                                                 var_list=self.online_Qnet.get_variables(),
@@ -107,7 +107,7 @@ class DQN(object):
 
         self._saver = tf.train.Saver(max_to_keep=5, keep_checkpoint_every_n_hours=10./60.)
         self._sequence_buffer = Buffer(maxlen=self._flags.get('state_seq_length',1))
-        self._replay_buffer = Buffer(maxlen=1000000)
+        self._replay_buffer = Buffer(maxlen=self._flags.get('replay_buffer_size', 10000))
         self._episode_reward_buffer = Buffer(maxlen=None)
         self._multi_steps_buffer = Buffer(maxlen=self._flags.get('multi_steps_n', 1))
 
