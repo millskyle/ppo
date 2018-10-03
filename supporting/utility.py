@@ -40,12 +40,42 @@ class ParameterOverrideFile(object):
 
 
 
-def nonetoneg(l):
-    """Replaces first occurring None value in list l with -1"""
-    print (l)
-    l2 = [i for i in l]
-    l2[l2.index(None)] = -1
-    return l2
+
+
+
+class Counter(object):
+    def __init__(self, name, init_=0):
+        self.var = tf.Variable(init_, trainable=False, name=name + '_counter') #variable
+        self.val = tf.identity(self.var, name=name + '_counter_val') #get the value
+        self.inc  = tf.assign(self.var, self.var + 1) #increment
+        self.res = tf.assign(self.var, init_) #reset
+        self.__sess = None
+        self.__mode_dict = {'increment':self.inc,
+                            'value':self.val,
+                            'reset':self.res
+                            }
+        self._needs_reeval = True
+
+    def incr(self):
+        self._check_session()
+        self.__sess.run(self.inc)
+        self._needs_reeval = True
+
+    def attach_session(self, sess):
+        self.__sess = sess
+
+    def _check_session(self):
+        assert self.__sess is not None, "You must attach a session to the counter by calling attach_session() before you can use the eval() method."
+
+    def eval(self):
+        if self._needs_reeval:
+            self._check_session()
+            self._last_val = self.__sess.run(self.val)
+        return self._last_val
+
+
+
+
 
 
 class LinearSchedule(object):

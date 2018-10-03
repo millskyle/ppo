@@ -6,7 +6,7 @@ sys.path.append("..")
 from supporting.NN import DenseNN
 from supporting.utility import get_log_path
 from supporting.utility import Buffer
-from supporting.utility import nonetoneg
+from supporting.utility import Counter
 import numpy as np
 
 class Placeholders(object):
