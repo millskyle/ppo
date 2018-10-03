@@ -16,11 +16,50 @@ class DutyCycle(object):
 
         return self._queue.pop(0)
 
+class LinearSchedule(object):
+    def __init__(self, start, end, steps):
+        """Linear schedule, with a y-intercept of start, decreasing to end in steps steps. If evaluated
+        at t > steps, end will be returned, e.g. val = max(val, end)"""
+        self.start = start
+        self.end = end
+        self.steps = steps
+
+    def val(self, t):
+        v = (self.end - self.start) / float(self.steps) * t + self.start
+        v = min(v, self.start)
+        v = max(v, self.end)
+        return v
+
+def get_log_path(logdir, prefix='run_'):
+    try:
+        os.mkdir(logdir)
+    except:
+        pass
+    dirs=[]
+    for dir in os.listdir(logdir):
+        if prefix in dir:
+            dirs.append(dir)
+
+    nums = [ int(s.replace(prefix, '')) for s in dirs ]
+    if len(nums) > 0:
+        return os.path.abspath(logdir) + '/' + prefix + str(max(nums)+1).zfill(2)
+    else:
+        return os.path.abspath(logdir) + '/' + prefix + str(0).zfill(2)
 
 
 
 class ParameterOverrideFile(object):
+    """Class to set up a file which gets periodically checked
+       and can override a parameter (e.g. learning rate, epsilon)
+    """
     def __init__(self, name, refresh_frequency=10):
+        """
+        Args:
+          name (str) : the name of the file
+          refresh_frequency (float) : the time (in seconds) between
+              checking the override file.  The last known value will
+              be used between checks.
+        """
         self._name = name
         self._refresh_frequency = refresh_frequency
         self._tic = time.time() - 99999.  #  a long time ago
@@ -37,9 +76,6 @@ class ParameterOverrideFile(object):
         else:
             val = self._last_val
         return val
-
-
-
 
 
 
@@ -77,36 +113,6 @@ class Counter(object):
 
 
 
-
-class LinearSchedule(object):
-    def __init__(self, start, end, steps):
-        """Linear schedule, with a y-intercept of start, decreasing to end in steps steps. If evaluated
-        at t > steps, end will be returned, e.g. val = max(val, end)"""
-        self.start = start
-        self.end = end
-        self.steps = steps
-
-    def val(self, t):
-        v = (self.end - self.start) / float(self.steps) * t + self.start
-        v = min(v, self.start)
-        v = max(v, self.end)
-        return v
-
-def get_log_path(logdir, prefix='run_'):
-    try:
-        os.mkdir(logdir)
-    except:
-        pass
-    dirs=[]
-    for dir in os.listdir(logdir):
-        if prefix in dir:
-            dirs.append(dir)
-
-    nums = [ int(s.replace(prefix, '')) for s in dirs ]
-    if len(nums) > 0:
-        return os.path.abspath(logdir) + '/' + prefix + str(max(nums)+1).zfill(2)
-    else:
-        return os.path.abspath(logdir) + '/' + prefix + str(0).zfill(2)
 
 
 
