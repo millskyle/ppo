@@ -79,6 +79,7 @@ class DQN(object):
 
         #y_j in the DQN paper:
         yj = rj + done_mask * self._ph.gamma * Q_value_targ
+        #yj = rj + self._ph.gamma * Q_value_targ
 
         #td-error:
         self._td_error = yj - q_value_of_the_action_we_took

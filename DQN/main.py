@@ -34,11 +34,11 @@ epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.1)
 FLAGS = {'prioritized_buffer': True,
          'double_q_learning': True,
          'multi_steps_n': 1,
-         'name_prefix': 'ms1_',
+         'name_prefix': 'ms=1_',
 
          'state_seq_length': 1,
          'replay_buffer_size': 5000,
-        'gamma': 0.95,
+         'gamma': 0.95,
 
         #Neural network stuff:
         'learning_rate': 1e-4,
@@ -91,12 +91,12 @@ if __name__=='__main__':
                     _ds, _ps = dqn._multi_steps_buffer.dump()  # get current contents of buffer, don't modify
                     _rewards = [_ds[i][2] for i in range(len(_ds))]  #extract just the rewards (the third column)
                     _returns = dqn.discount_rewards(R=_rewards, gamma=FLAGS['gamma']) #discount the rewards
-                    _return = np.sum(_returns) 
-                    _otpN = copy.deepcopy(_ds[-1][-1])  #t+N is the last column of the last row
-
+                    _return = np.sum(_returns)
+                    _otpN = copy.deepcopy(_ds[-1][4])  #t+N is the last column of the last row
+                    _donetpN = copy.deepcopy(_ds[-1][3])
                     _data, _ = dqn._multi_steps_buffer.popleft(1)
                     _o, _a, _r, _d, _otp1 = _data[0]
-                    dqn._replay_buffer.add((_o, _a, _return, _d, _otpN), add_until_full=False)
+                    dqn._replay_buffer.add((_o, _a, _return, _donetpN, _otpN), add_until_full=False)
 
                 if dqn._total_step_counter.eval()%TRAINING_FREQ==0:
                     if dqn._replay_buffer.size > BATCH_SIZE:
