@@ -7,6 +7,7 @@ import logging
 import sys
 sys.path.append("..")
 from supporting.utility import LinearSchedule, ParameterOverrideFile, DutyCycle
+from supporting.utility import ProgressBar
 import colored_traceback.auto
 
 logging.basicConfig(level=logging.INFO)
@@ -43,27 +44,6 @@ FLAGS = {'prioritized_buffer': True,
         }
 
 env = gym.make('CartPole-v0')
-
-import progressbar
-class ProgressBar(object):
-    def __init__(self, maxval):
-        self._maxval = maxval
-        self._widgets = [ progressbar.FormatLabel('                   '), ' ',
-                          progressbar.Percentage(), ' ',
-                          progressbar.Bar(), ' '
-                        ]
-        self._bar = progressbar.ProgressBar(widgets=self._widgets, max_value=self._maxval)
-        self._bar.update(0)
-        self._last_val = 0
-
-    def update(self, val):
-        self._last_val = val
-        self._bar.update(val)
-
-
-    def status(self, status=""):
-        self._widgets[0] = progressbar.FormatLabel(status)
-        self._bar.update(self._last_val)
 
 
 
