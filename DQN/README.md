@@ -11,7 +11,7 @@ python main.py
 lr = log10 of learning rate
 e  = log10 of epsilon annealing steps
 s  = sequence length per observation
-Tq = Episodes between Q-syncronization
+Tq = Steps between Q-syncronization
 Tt = Steps between weight updates
 Ts = Steps after which success is evident
 
@@ -23,10 +23,9 @@ Ts = Steps after which success is evident
 
 _All benchmarking in this section was done with a dense 3-layer neural network, with 400 x 400 x n_actions nodes._
 
-| Environment    | Success  | lr  | e | s | Tq | Tt | Ts    |
-| -------------- | -------- | --- | _ | _ | __ | __ | _____ |
-| Debug-v0       | True     | -3  | 4 | 1 | 2  | 4  | 15 k  |
-| CartPole-v1    | True     | -3  | 5 | 1 | 2  | 4  | 120 k |
+| Environment    | Success  | lr  | e   | s | Tq  | Tt | Ts    |
+| -------------- | -------- | --- | ___ | _ | ___ | __ | _____ |
+| CartPole-v1    | True     | -4  | 4.7 | 1 | 64  | 4  | 120 k |
 
 
 
@@ -42,3 +41,8 @@ If you use this code, you should probably cite the following papers, depending o
    - https://arxiv.org/abs/1511.05952
 - Double Q learning
    - https://arxiv.org/abs/1509.06461
+- Multi-step learning
+   -  https://arxiv.org/abs/1710.02298
+
+
+The original temporal difference paper (Sutton, 1988) is here: https://pdfs.semanticscholar.org/9c06/865e912788a6a51470724e087853d7269195.pdf

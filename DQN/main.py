@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 from dqn import DQN
 import gym
+import cleangym
 import logging
 import sys
 import progressbar
@@ -16,30 +17,30 @@ logging.basicConfig(level=logging.INFO)
 s
 """
 
-TOTAL_STEPS = 50000
+TOTAL_STEPS = 500000
 CHKPT_PATH = './models/'
 RESTORE = False
 BATCH_SIZE=256
-Q_SYNC_FREQ = 16  #number of *steps* between syncronization of Q functions
+Q_SYNC_FREQ = 64  #number of *steps* between syncronization of Q functions
 TRAINING_FREQ = 4 #Train after this many total steps
 
 
-epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(50000))
-epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.01)
+epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(0.75*TOTAL_STEPS))
+epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.1)
 
-STATE_SEQ_LENGTH = 1  # each state will be made up of this many "observations"
+STATE_SEQ_LENGTH = 4  # each state will be made up of this many "observations"
 
 FLAGS = {'prioritized_buffer': True,
          'double_q_learning': True,
-         'multi_steps_n': 5,
+         'multi_steps_n': 100,
+         'name_prefix': 'run_',
+         'learning_rate': 1e-4,
         }
 
-
-
-#env = gym.make('MountainCar-v0')
+env = gym.make('MountainCar-v0')
 #env = gym.make('Carnot-v1')
 #env = gym.make('Debug-v0')
-env = gym.make('CartPole-v0')
+#env = gym.make('CartPole-v0')
 bar = progressbar.ProgressBar(max_value=TOTAL_STEPS)
 #env = gym.make('KBlocker-v0')
 
@@ -78,12 +79,12 @@ if __name__=='__main__':
                 if dqn._multi_steps_buffer.is_full:
                     _ds, _ps = dqn._multi_steps_buffer.dump()  # get current contents of buffer, don't modify
                     _rewards = [_ds[i][2] for i in range(len(_ds))]  #extract just the rewards (the third column)
-                    _rewards = dqn.discount_rewards(_rewards) #discount the rewards
-                    _reward = np.sum(_rewards)
+                    _returns = dqn.discount_rewards(_rewards) #discount the rewards
+                    _return = np.sum(_returns)
 
                     _d, _p = dqn._multi_steps_buffer.popleft(1)
                     _o, _a, _r, _d, _otp1 = _d[0]
-                    dqn._replay_buffer.add((_o, _a, _reward, _d, _otp1), add_until_full=False)
+                    dqn._replay_buffer.add((_o, _a, _return, _d, _otp1), add_until_full=False)
 
                 if dqn._total_step_counter.eval()%TRAINING_FREQ==0:
                     if dqn._replay_buffer.is_full:

@@ -126,7 +126,7 @@ class DQN(object):
             logging.debug(var.name)
 
 
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-5)
         self.train_op = self.optimizer.minimize(_objective,
                                                 var_list=self.online_Qnet.get_variables(),
                                                 global_step=self._weight_update_counter.var)
@@ -136,7 +136,7 @@ class DQN(object):
 
         self._saver = tf.train.Saver(max_to_keep=5, keep_checkpoint_every_n_hours=10./60.)
         self._sequence_buffer = Buffer(maxlen=state_sequence_length)
-        self._replay_buffer = Buffer(maxlen=10000)
+        self._replay_buffer = Buffer(maxlen=1000000)
         self._episode_reward_buffer = Buffer(maxlen=None)
         self._multi_steps_buffer = Buffer(maxlen=self._flags.get('multi_steps_n', 1))
 
@@ -228,7 +228,7 @@ class DQN(object):
         #if self._epsilon_override is not None:
         #epsilon = min(max(self._epsilon_override, 0.0),1.0)
 
-        if summary and self._episode_counter.eval() % 100 == 1:
+        if summary and self._episode_counter.eval() % 1 == 0:
             #SUMMARIES
             summary = tf.Summary()
             #summary.value.add(tag='intermediate/Q_a1', simple_value=Q_vals[0][0])
