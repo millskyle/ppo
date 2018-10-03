@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 s
 """
 
-TOTAL_STEPS = 500000
+TOTAL_STEPS = 200*1000
 CHKPT_PATH = './models/'
 RESTORE = False
 BATCH_SIZE=256
@@ -28,26 +28,23 @@ TRAINING_FREQ = 4 #Train after this many total steps
 epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(0.75*TOTAL_STEPS))
 epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.1)
 
-STATE_SEQ_LENGTH = 4  # each state will be made up of this many "observations"
-
-FLAGS = {'prioritized_buffer': True,
-         'double_q_learning': True,
-         'multi_steps_n': 100,
-         'name_prefix': 'run_',
+FLAGS = {'prioritized_buffer': False,
+         'double_q_learning': False,
+         'multi_steps_n': 1,
+         'name_prefix': 'base_',
          'learning_rate': 1e-4,
+
+         'state_seq_length': 1
         }
 
-env = gym.make('MountainCar-v0')
-#env = gym.make('Carnot-v1')
-#env = gym.make('Debug-v0')
-#env = gym.make('CartPole-v0')
+env = gym.make('CartPole-v0')
+
+
 bar = progressbar.ProgressBar(max_value=TOTAL_STEPS)
-#env = gym.make('KBlocker-v0')
 
 if __name__=='__main__':
 
-    dqn = DQN(env=env, restore=RESTORE, state_sequence_length=STATE_SEQ_LENGTH,
-              checkpoint_path=CHKPT_PATH, flags=FLAGS)
+    dqn = DQN(env=env, restore=RESTORE, checkpoint_path=CHKPT_PATH, flags=FLAGS)
 
     with tf.Session() as sess:
         dqn.attach_session(sess)
@@ -60,18 +57,19 @@ if __name__=='__main__':
 
             dqn._start_of_episode()
             while True:
-                #logging.debug("Buffer size: {}".format(dqn._replay_buffer.size))
                 dqn._before_env_step()
                 obs_seq, _ = dqn._sequence_buffer.dump()
-                #request the index of the action
                 this_epsilon = epsilon_from_file.get(fallback=epsilon.val(dqn._total_step_counter.eval()))
+                #request the index of the action.  DQN takes care of e-greedy, etc.
                 action = dqn.get_action(obs_seq, epsilon=this_epsilon)
-
                 #take the action
                 next_obs, reward, done, info = env.step(action)
                 dqn._after_env_step(reward=reward)
 
-
+                #The "sequence buffer" holds the last t frames,
+                #so that the observation can be comprised of multiple
+                #states (e.g. history) as was done in the original dqn
+                #paper.  Setting
                 dqn._sequence_buffer.add(next_obs)
                 obs_seq_tp1, _ = dqn._sequence_buffer.dump()
 

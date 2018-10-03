@@ -10,7 +10,8 @@ from supporting.utility import Counter
 import numpy as np
 
 class Placeholders(object):
-    def __init__(self, env, state_sequence_length):
+    def __init__(self, env, flags):
+        state_sequence_length = flags.get('state_seq_length', 1)
         self.state_in = tf.placeholder(tf.float32, shape=[None,] + [state_sequence_length,] + list(env.observation_space.shape), name='state_in')
         self.state_tp1_in = tf.placeholder(tf.float32, shape=[None,] +[state_sequence_length,] + list(env.observation_space.shape), name='next_state_in')
         self.action_in = tf.placeholder(tf.int64, shape=[None,], name='action_in')
@@ -19,41 +20,11 @@ class Placeholders(object):
 
 
 
-class Counter(object):
-    def __init__(self, name, init_=0):
-        self.var = tf.Variable(init_, trainable=False, name=name + '_counter') #variable
-        self.val = tf.identity(self.var, name=name + '_counter_val') #get the value
-        self.inc  = tf.assign(self.var, self.var + 1) #increment
-        self.res = tf.assign(self.var, init_) #reset
-        self.__sess = None
-        self.__mode_dict = {'increment':self.inc,
-                            'value':self.val,
-                            'reset':self.res
-                            }
-        self._needs_reeval = True
-
-    def incr(self):
-        self._check_session()
-        self.__sess.run(self.inc)
-        self._needs_reeval = True
-
-    def attach_session(self, sess):
-        self.__sess = sess
-
-    def _check_session(self):
-        assert self.__sess is not None, "You must attach a session to the counter by calling attach_session() before you can use the eval() method."
-
-    def eval(self):
-        if self._needs_reeval:
-            self._check_session()
-            self._last_val = self.__sess.run(self.val)
-        return self._last_val
 
 
 
 class DQN(object):
-    def __init__(self, env, restore=True, state_sequence_length=1,
-                 checkpoint_path=None, gamma=0.95, flags={}):
+    def __init__(self, env, restore=True, checkpoint_path=None, gamma=0.95, flags={}):
 
         self._env = env
         self.__restore = restore
@@ -68,7 +39,7 @@ class DQN(object):
         self._weight_update_counter = Counter('weight_update')
         self.__counters=[self._episode_counter, self._env_step_counter, self._total_step_counter, self._weight_update_counter]
 
-        self._ph = Placeholders(env=self._env, state_sequence_length=state_sequence_length)
+        self._ph = Placeholders(env=self._env, flags=self._flags)
 
         self.online_Qnet = DenseNN(in_=self._ph.state_in,
                                    units=[128,128,self._env.action_space.n],
@@ -135,7 +106,7 @@ class DQN(object):
                                                           from_scope='Q')
 
         self._saver = tf.train.Saver(max_to_keep=5, keep_checkpoint_every_n_hours=10./60.)
-        self._sequence_buffer = Buffer(maxlen=state_sequence_length)
+        self._sequence_buffer = Buffer(maxlen=self._flags.get('state_seq_length',1))
         self._replay_buffer = Buffer(maxlen=1000000)
         self._episode_reward_buffer = Buffer(maxlen=None)
         self._multi_steps_buffer = Buffer(maxlen=self._flags.get('multi_steps_n', 1))
