@@ -17,27 +17,27 @@ logging.basicConfig(level=logging.INFO)
 s
 """
 
-TOTAL_STEPS = 200*1000
+TOTAL_STEPS = 10000
 CHKPT_PATH = './models/'
 RESTORE = False
-BATCH_SIZE=16
-Q_SYNC_FREQ = 64  #number of *steps* between syncronization of Q functions
-TRAINING_FREQ = 4 #Train after this many total steps
+BATCH_SIZE=10
+Q_SYNC_FREQ = 16  #number of *steps* between syncronization of Q functions
+TRAINING_FREQ = 1 #Train after this many total steps
 
 
-#epsilon = LinearSchedule(start=1.0, end=0.01, steps=int(0.75*TOTAL_STEPS), name="$\epsilon$ schedule")
-epsilon = ExponentialSchedule(start=1.0, end=0.01, time_constant=int(0.2*TOTAL_STEPS), base=2., name="$\epsilon$ schedule")
+epsilon = LinearSchedule(start=1.0, end=0.05, steps=int(0.5*TOTAL_STEPS), name="$\epsilon$ schedule")
+#epsilon = ExponentialSchedule(start=1.0, end=0.01, time_constant=int(0.2*TOTAL_STEPS), base=2., name="$\epsilon$ schedule")
 #epsilon.plot(np.arange(TOTAL_STEPS))
 
 epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.1)
 
-FLAGS = {'prioritized_buffer': False,
-         'double_q_learning': False,
-         'multi_steps_n': 1,
-         'name_prefix': 'ddqpb_',
+FLAGS = {'prioritized_buffer': True,
+         'double_q_learning': True,
+         'multi_steps_n': 3,
+         'name_prefix': 'ms3_',
 
          'state_seq_length': 1,
-#         'replay_buffer_size': 10000
+         'replay_buffer_size': 5000,
 
         #Neural network stuff:
         'learning_rate': 1e-4,
@@ -45,6 +45,7 @@ FLAGS = {'prioritized_buffer': False,
         }
 
 env = gym.make('CartPole-v0')
+env = gym.make('KBlocker-v0')
 
 
 
@@ -88,16 +89,18 @@ if __name__=='__main__':
                 dqn._multi_steps_buffer.add((obs_seq, action, reward, done, obs_seq_tp1), add_until_full=False)
                 if dqn._multi_steps_buffer.is_full:
                     _ds, _ps = dqn._multi_steps_buffer.dump()  # get current contents of buffer, don't modify
+                    assert len(_ds) == FLAGS['multi_steps_n'], "ERROR"
                     _rewards = [_ds[i][2] for i in range(len(_ds))]  #extract just the rewards (the third column)
                     _returns = dqn.discount_rewards(_rewards) #discount the rewards
                     _return = np.sum(_returns)
+                    _otpN = _ds[-1][-1]
 
                     _d, _p = dqn._multi_steps_buffer.popleft(1)
                     _o, _a, _r, _d, _otp1 = _d[0]
-                    dqn._replay_buffer.add((_o, _a, _return, _d, _otp1), add_until_full=False)
+                    dqn._replay_buffer.add((_o, _a, _return, _d, _otpN), add_until_full=False)
 
                 if dqn._total_step_counter.eval()%TRAINING_FREQ==0:
-                    if dqn._replay_buffer.is_full:
+                    if dqn._replay_buffer.size > BATCH_SIZE:
                         bar.status("Training")
                         dqn.train(BATCH_SIZE, epsilon=this_epsilon)
                     else:
