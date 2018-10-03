@@ -126,7 +126,7 @@ class DQN(object):
             logging.debug(var.name)
 
 
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=1e-5)
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=self._flags.get('learning_rate', 1e-3))
         self.train_op = self.optimizer.minimize(_objective,
                                                 var_list=self.online_Qnet.get_variables(),
                                                 global_step=self._weight_update_counter.var)
