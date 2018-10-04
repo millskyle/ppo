@@ -60,6 +60,8 @@ if __name__=='__main__':
 
     with tf.Session() as sess:
         dqn.attach_session(sess)
+        if RESET_COUNTERS:
+            dqn.reset_counters()
 
         while dqn._total_step_counter.eval() < TOTAL_STEPS:
             bar.update(dqn._total_step_counter.eval())

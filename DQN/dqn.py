@@ -109,7 +109,9 @@ class DQN(object):
         self._episode_reward_buffer = Buffer(maxlen=None)
         self._multi_steps_buffer = Buffer(maxlen=self._flags.get('multi_steps_n', 1))
 
-
+    def reset_counters(self):
+        for counter in self.__counters:
+            counter.reset()
     def _get_sync_scopes_ops(self, from_scope, to_scope):
         from_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=from_scope)
         to_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=to_scope)

@@ -165,6 +165,11 @@ class Counter(object):
         self.__sess.run(self.inc)
         self._needs_reeval = True
 
+    def reset(self):
+        self._check_session()
+        self.__sess.run(self.res)
+        self._needs_reeval = True
+
     def attach_session(self, sess):
         self.__sess = sess
 
