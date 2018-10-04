@@ -12,6 +12,7 @@ import numpy as np
 class Placeholders(object):
     def __init__(self, env, flags):
         state_sequence_length = flags.get('state_seq_length', 1)
+        self.batch_size = tf.placeholder(tf.int64, shape=[], name='batch_size')
         self.state_in = tf.placeholder(tf.float32, shape=[None,] + [state_sequence_length,] + list(env.observation_space.shape), name='state_in')
         self.state_tp1_in = tf.placeholder(tf.float32, shape=[None,] +[state_sequence_length,] + list(env.observation_space.shape), name='next_state_in')
         self.action_in = tf.placeholder(tf.int64, shape=[None,], name='action_in')
@@ -40,9 +41,11 @@ class DQN(object):
 
         self.online_Qnet = DenseNN(in_=self._ph.state_in,
                                    units=[128,128,self._env.action_space.n],
-                                   activations=[tf.nn.selu,]*3,# + [None],
+                                   activations=[tf.nn.selu,]*2 + [None],
                                    scope='Q',
-                                   reuse=False
+                                   reuse=False,
+                                   noisy=self._flags.get('noisy_net_magnitude', 0.0),
+                                   batch_size = self._ph.batch_size,
                                    )
 
         if self._flags.get('double_q_learning', False):
@@ -50,16 +53,21 @@ class DQN(object):
                network to predict the Q values"""
             self.double_Qnet = DenseNN(in_=self._ph.state_tp1_in,
                                        units=[128,128,self._env.action_space.n],
-                                       activations=[tf.nn.selu,]*3,# + [None],
+                                       activations=[tf.nn.selu,]*2 + [None],
                                        scope='Q',
-                                       reuse=True  #Make sure to use the same weights!
+                                       #Make sure to use the same weights!
+                                       reuse=True,
+                                       noisy=self._flags.get('noisy_net_magnitude', 0.0),
+                                       batch_size = self._ph.batch_size,
                                        )
 
         self.offline_Qnet = DenseNN(in_=self._ph.state_tp1_in,
                                     units=[128,128,self._env.action_space.n],
-                                    activations=[tf.nn.selu,]*3,# + [None],
+                                    activations=[tf.nn.selu,]*2 + [None],
                                     scope='target_Q',
-                                    reuse=False
+                                    reuse=False,
+                                    noisy=self._flags.get('noisy_net_magnitude', 0.0),
+                                    batch_size = self._ph.batch_size,
                                     )
 
 
@@ -177,6 +185,7 @@ class DQN(object):
             print("    goes to:",s_tp1)
             print("-"*50)
         feed_dict = {
+            self._ph.batch_size:   len(r),
             self._ph.state_in:     s,
             self._ph.action_in:    np.array(a),
             self._ph.reward_in:    np.array(r),
@@ -219,7 +228,8 @@ class DQN(object):
         else:
             obs = np.expand_dims(observation, 0) #make the single state into a "batch" of size 1
             Q_vals = self._sess.run(self.online_Qnet.output, feed_dict={
-                                   self._ph.state_in: obs
+                                   self._ph.state_in: obs,
+                                   self._ph.batch_size: 1,
                                    })
             a_t = np.argmax(Q_vals)
 

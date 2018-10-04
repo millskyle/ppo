@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.DEBUG)
 """ Main file that initializes an environment,
     sets up the policy networks, training algorithm, etc.
 """
-from main import STATE_SEQ_LENGTH, CHKPT_PATH
+from main import CHKPT_PATH
 from main import env
 
 
@@ -31,8 +31,7 @@ FLAGS = {'name_prefix':'inference_'}
 
 if __name__=='__main__':
 
-    dqn = DQN(env=env, restore=RESTORE, state_sequence_length=STATE_SEQ_LENGTH,
-              checkpoint_path=CHKPT_PATH, flags=FLAGS)
+    dqn = DQN(env=env, restore=RESTORE, checkpoint_path=CHKPT_PATH, flags=FLAGS)
 
     with tf.Session() as sess:
         dqn.attach_session(sess)

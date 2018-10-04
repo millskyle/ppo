@@ -17,15 +17,16 @@ logging.basicConfig(level=logging.INFO)
 s
 """
 
-TOTAL_STEPS = 10000
+TOTAL_STEPS = 10000000
 CHKPT_PATH = './models/'
-RESTORE = False
-BATCH_SIZE=10
+RESTORE = True
+RESET_COUNTERS=False
+BATCH_SIZE=100
 Q_SYNC_FREQ = 16  #number of *steps* between syncronization of Q functions
 TRAINING_FREQ = 1 #Train after this many total steps
 
 
-epsilon = LinearSchedule(start=1.0, end=0.05, steps=int(0.5*TOTAL_STEPS), name="$\epsilon$ schedule")
+epsilon = LinearSchedule(start=0.001, end=0.001, steps=int(0.5*TOTAL_STEPS), name="$\epsilon$ schedule")
 #epsilon = ExponentialSchedule(start=1.0, end=0.01, time_constant=int(0.2*TOTAL_STEPS), base=2., name="$\epsilon$ schedule")
 #epsilon.plot(np.arange(TOTAL_STEPS))
 
@@ -33,19 +34,22 @@ epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.1)
 
 FLAGS = {'prioritized_buffer': True,
          'double_q_learning': True,
-         'multi_steps_n': 1,
-         'name_prefix': 'ms=1_',
+         'multi_steps_n': 5,
+         'name_prefix': 'ms=5_',
 
          'state_seq_length': 1,
-         'replay_buffer_size': 5000,
+         'replay_buffer_size': 50000,
          'gamma': 0.95,
 
         #Neural network stuff:
-        'learning_rate': 1e-4,
+        'learning_rate': 1e-5,
+
+        'noisy_net_magnitude': 10.0 # zero for disabled
 
         }
 
 env = gym.make('CartPole-v0')
+env = gym.make('MountainCar-v0')
 #env = gym.make('KBlocker-v0')
 
 
@@ -101,7 +105,8 @@ if __name__=='__main__':
                     dqn._replay_buffer.add((_o, _a, _return, _donetpN, _otpN), add_until_full=False)
 
                 if dqn._total_step_counter.eval()%TRAINING_FREQ==0:
-                    if dqn._replay_buffer.size > BATCH_SIZE:
+                    #if dqn._replay_buffer.size > BATCH_SIZE:
+                    if dqn._replay_buffer.is_full: # > BATCH_SIZE:
                         bar.status("Training")
                         dqn.train(BATCH_SIZE, epsilon=this_epsilon, gamma=FLAGS['gamma']**FLAGS.get('multi_steps_n',1.0))
                     else:
