@@ -3,7 +3,8 @@ import numpy as np
 import logging
 import sys
 import copy
-from utility import get_log_path
+sys.path.append("..")
+from supporting.utility import get_log_path, Buffer
 import os
 from policy_network import DenseNN
 
@@ -31,6 +32,8 @@ class Algorithm(object):
         self._use_curiosity = use_curiosity
 
         self.__weight_update_counter = 0
+
+        self._buffer = Buffer(maxlen=10000, prioritized=False)
 
 
         self._sess = None
@@ -199,7 +202,7 @@ class Algorithm(object):
         _summary, _ = self.sess.run([self._summaries, self.train_op], feed_dict=feed_dict)
 
 
-        if verbose:
+        if verbose and self._use_curiosity:
             pred, taken = self.sess.run([self._curiosity_a_pred, self.action_taken_onehot], feed_dict=feed_dict)
             logging.info("A_pred:" + str(pred[0]))
             logging.info("A_taken:" + str(taken[0]))
@@ -222,12 +225,32 @@ class Algorithm(object):
         return self.sess.run(self.assign_ops)
 
 
-    def estimate_advantage(self, rewards, v_preds, v_preds_next):
-        deltas = [r_t + self.gamma * v_next - v for r_t, v_next, v in zip(rewards, v_preds_next, v_preds)]
-        advantage_estimate = copy.deepcopy(deltas)
-        for t in reversed(range(len(advantage_estimate)-1)):
-            advantage_estimate[t] = advantage_estimate[t] + self.gamma * advantage_estimate[t+1]
-        return advantage_estimate
+
+    def truncated_general_advantage_estimate(self, T, from_buffer=False, V=None, r=None):
+        """
+        <int> T, truncation length
+        <Buffer|False> from_buffer, whether to calculate from buffer
+        <int|list(float)> V, values.  If from_buffer is a Buffer, V specifies the index of the column
+           If from_buffer is  False,  V should be a list of floats of len >= T
+        <int|list(float)> r, rewards.  If from_buffer is a Buffer, r specifies the index of the column
+           If from_buffer is  False,  r should be a list of floats of len >= T
+        """
+
+        if from_buffer==False:
+            raise NotImplementedError
+
+        self.adv_lambda = 0.95  # TODO move this elsewhere
+
+        Rs,_ = from_buffer.dump_column(col=r)
+        Vs,_ = from_buffer.dump_column(col=V)
+        Rs = np.array(Rs)
+        Vs = np.array(Vs)
+        Vs_tp1 = np.roll(Vs, -1)
+        Vs_tp1[-1] = 0
+        delta_ts = Rs + self.gamma*Vs_tp1 - Vs
+        A_ts = np.array([ np.sum(delta_ts[start:start+T] * np.power(self.gamma*self.adv_lambda, np.arange((len(delta_ts[start:start+T]))))) for start in range(len(Vs))])
+        return (A_ts-A_ts.mean()) / A_ts.std()
+
 
 
     def _end_of_episode(self):

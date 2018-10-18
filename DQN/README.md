@@ -5,6 +5,13 @@
 ```bash
 python main.py
 ```
+### Visualizing
+To 'render' (show) the next episode to screen, create a file in this directory called 'render'.  This will cause the gym to render the next episode.  After this the render file will be deleted.  For example:
+```bash
+touch render
+```
+
+
 
 ## Benchmarks
 
@@ -44,5 +51,6 @@ If you use this code, you should probably cite the following papers, depending o
 - Multi-step learning
    -  https://arxiv.org/abs/1710.02298
 
-
 The original temporal difference paper (Sutton, 1988) is here: https://pdfs.semanticscholar.org/9c06/865e912788a6a51470724e087853d7269195.pdf
+
+

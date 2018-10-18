@@ -7,7 +7,6 @@ import tensorflow as tf
 import progressbar
 
 
-
 class ProgressBar(object):
     def __init__(self, maxval):
         self._maxval = maxval
@@ -63,16 +62,17 @@ class Schedule(object):
 
 
 class LinearSchedule(Schedule):
-    def __init__(self, start, end, steps, *args, **kwargs):
+    def __init__(self, start, end, steps, pause_for=0.0, *args, **kwargs):
         """Linear schedule, with a y-intercept of start, decreasing to end in steps steps. If evaluated
         at t > steps, end will be returned, e.g. val = max(val, end)"""
         super().__init__(*args, **kwargs)
         self.start = start
         self.end = end
         self.steps = steps
+        self.pause = pause_for
 
     def val(self, t):
-        v = (self.end - self.start) / float(self.steps) * t + self.start
+        v = (self.end - self.start) / float(self.steps) * (t-self.pause) + self.start
         v = min(v, self.start)
         v = max(v, self.end)
         return v
@@ -183,13 +183,6 @@ class Counter(object):
         return self._last_val
 
 
-
-
-
-
-
-
-
 class Buffer(object):
     def __init__(self, maxlen, prioritized=False):
         self.__maxlen=maxlen
@@ -234,6 +227,12 @@ class Buffer(object):
         """Return the data without removing from the buffer"""
         return list(self.__data), list(self.__prior)
 
+    def dump_column(self, col=1):
+        """Return a column of data without removing from buffer"""
+        dat = [d[col] for d in self.__data]
+        return list(dat), list(self.__prior)
+
+
     def set_priorities_of_last_returned_sample(self, p):
         for p_index, buffer_index in enumerate(self._last_returned_indices):
             self.__prior[buffer_index] = p[p_index]
@@ -246,7 +245,6 @@ class Buffer(object):
         if mode=='random':
             indices = np.random.choice(len(self.__data), size=N)
             batch = [self.__data[i] for i in indices]
-            return batch
         elif mode=='prioritized':
             p_normed = np.array(self.__prior)
             p_normed = p_normed / p_normed.sum()
@@ -257,3 +255,6 @@ class Buffer(object):
             raise NotImplementedError
         self._last_returned_indices = indices
         return batch
+
+    def get_last_returned_indices(self):
+        return self._last_returned_indices
