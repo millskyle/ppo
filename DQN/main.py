@@ -17,39 +17,39 @@ logging.basicConfig(level=logging.INFO)
 s
 """
 
-TOTAL_STEPS = 10000000
+TOTAL_STEPS = 200000
 CHKPT_PATH = './models/'
-RESTORE = True
+RESTORE = False
 RESET_COUNTERS=False
-BATCH_SIZE=100
-Q_SYNC_FREQ = 16  #number of *steps* between syncronization of Q functions
-TRAINING_FREQ = 1 #Train after this many total steps
+BATCH_SIZE=16
+Q_SYNC_FREQ = 64  #number of *steps* between syncronization of Q functions
+TRAINING_FREQ = 4 #Train after this many total steps
 
 
-epsilon = LinearSchedule(start=0.001, end=0.001, steps=int(0.5*TOTAL_STEPS), name="$\epsilon$ schedule")
+epsilon = LinearSchedule(start=1.00, end=0.001, steps=int(10**4.7), name="$\epsilon$ schedule", pause_for=10000)
 #epsilon = ExponentialSchedule(start=1.0, end=0.01, time_constant=int(0.2*TOTAL_STEPS), base=2., name="$\epsilon$ schedule")
-#epsilon.plot(np.arange(TOTAL_STEPS))
+epsilon.plot(np.arange(TOTAL_STEPS))
 
 epsilon_from_file = ParameterOverrideFile(name='epsilon', refresh_frequency=0.1)
 
-FLAGS = {'prioritized_buffer': True,
-         'double_q_learning': True,
-         'multi_steps_n': 5,
-         'name_prefix': 'ms=5_',
+FLAGS = {'prioritized_buffer': False,
+         'double_q_learning': False,
+         'multi_steps_n': 1,
+         'name_prefix': 'std_',
 
          'state_seq_length': 1,
-         'replay_buffer_size': 50000,
+         'replay_buffer_size': 1000,
          'gamma': 0.95,
 
         #Neural network stuff:
-        'learning_rate': 1e-5,
+        'learning_rate': 1e-4,
 
-        'noisy_net_magnitude': 10.0 # zero for disabled
+        'noisy_net_magnitude': 0.0 # zero for disabled
 
         }
 
-env = gym.make('CartPole-v0')
-env = gym.make('MountainCar-v0')
+env = gym.make('CartPole-v1')
+#env = gym.make('MountainCar-v0')
 #env = gym.make('KBlocker-v0')
 
 

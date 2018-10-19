@@ -34,7 +34,7 @@ from supporting.NN import DenseNN
 
 
 
-class NeuralNet(object):
+class PolicyNet(object):
     def __init__(self, env, label):
         self._sess = None
 

@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
-from ppo import Algorithm
-from policy_network import NeuralNet
+from ppo import PPO
+from policy_network import PolicyNet
 import gym
 import cleangym
 import roboschool

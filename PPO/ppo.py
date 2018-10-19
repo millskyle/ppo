@@ -13,7 +13,7 @@ def softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
 
-class Algorithm(object):
+class PPO(object):
 
 
     def make_input_placeholders(self):

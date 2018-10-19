@@ -28,12 +28,12 @@ Ts = Steps after which success is evident
 
 ### Normal DQN
 
-_All benchmarking in this section was done with a dense 3-layer neural network, with 400 x 400 x n_actions nodes._
+_All benchmarking in this section was done with a dense 3-layer neural network, with 400 x 400 x n_actions nodes. Prioritized buffer was used.
 
-| Environment    | Success  | lr  | e   | s | Tq  | Tt | Ts    |
-| -------------- | -------- | --- | ___ | _ | ___ | __ | _____ |
-| CartPole-v1    | True     | -4  | 4.7 | 1 | 64  | 4  | 120 k |
-
+| Environment    | Success  | lr  | e   | s | Tq  | Tt | Ts    | 
+| -------------- | -------- | --- | ___ | _ | ___ | __ | _____ | 
+| CartPole-v1    | True     | -4  | 4.7 | 1 | 64  | 4  | 40 k  |
+| MountainCar-v0 | True     | -5  | 
 
 
 
@@ -50,6 +50,7 @@ If you use this code, you should probably cite the following papers, depending o
    - https://arxiv.org/abs/1509.06461
 - Multi-step learning
    -  https://arxiv.org/abs/1710.02298
+
 
 The original temporal difference paper (Sutton, 1988) is here: https://pdfs.semanticscholar.org/9c06/865e912788a6a51470724e087853d7269195.pdf
 
