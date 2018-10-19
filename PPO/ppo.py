@@ -6,14 +6,16 @@ import copy
 sys.path.append("..")
 from supporting.utility import get_log_path, Buffer
 import os
-from policy_network import DenseNN
+from policy_network import DenseNN, PolicyNet
+from supporting.utility import Counter
+from supporting.algorithm import Algorithm
 
 def softmax(x):
     """Compute softmax values for each sets of scores in x."""
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
 
-class PPO(object):
+class PPO(Algorithm):
 
 
     def make_input_placeholders(self):
@@ -22,12 +24,19 @@ class PPO(object):
         self.v_preds_next = tf.placeholder(dtype=tf.float32, shape=[None], name='value_pred_next')
         self.advantage_estimate = tf.placeholder(dtype=tf.float32, shape=[None], name='advantage_estimate')
 
+    def attach_session(self, sess):
+        super().attach_session(sess)
+        self.policy.attach_session(sess)
+        self.old_policy.attach_session(sess)
 
-    def __init__(self, policy, old_policy, gamma=0.95, epsilon=0.2, c_1=1., c_2=0.000001,
+
+    def __init__(self, env, restore, output_path, flags, gamma=0.95, epsilon=0.2, c_1=1., c_2=0.000001,
                  use_curiosity=False, eta=0.1, llambda=0.1, beta=0.2):
+        super().__init__(restore=restore, output_path=output_path, flags=flags)
+
         """ epsilon :: clip_value """
-        self.policy = policy
-        self.old_policy = old_policy
+        self.policy = PolicyNet(env=env, label='policy')
+        self.old_policy = PolicyNet(env=env, label='old_policy')
         self.gamma = gamma
         self._use_curiosity = use_curiosity
 
@@ -36,7 +45,6 @@ class PPO(object):
         self._buffer = Buffer(maxlen=10000, prioritized=False)
 
 
-        self._sess = None
 
         self.make_copy_nn_ops()  #make ops to sync old_policy to policy\
         self.make_input_placeholders() #make placeholders
@@ -163,18 +171,8 @@ class PPO(object):
         self._summaries = tf.summary.merge_all()
 
 
-    @property
-    def sess(self):
-        if self._sess is None:
-            logging.error("You must attach a session using the attach_session(sess) method.")
-            sys.exit(1)
-        else:
-            return self._sess
 
-    def attach_session(self, sess):
-        self._sess = sess
-        self._summary_writer = tf.summary.FileWriter(get_log_path('./logs','run_'),
-                                                     self._sess.graph, flush_secs=5)
+
 
     def evaluate_intrinsic_reward(self, obs, obs_tp1):
         obs_d = np.array(obs).reshape(1,-1)
@@ -250,16 +248,3 @@ class PPO(object):
         delta_ts = Rs + self.gamma*Vs_tp1 - Vs
         A_ts = np.array([ np.sum(delta_ts[start:start+T] * np.power(self.gamma*self.adv_lambda, np.arange((len(delta_ts[start:start+T]))))) for start in range(len(Vs))])
         return (A_ts-A_ts.mean()) / A_ts.std()
-
-
-
-    def _end_of_episode(self):
-        pass
-
-
-    def _start_of_episode(self):
-        if os.path.exists('./render'):
-            self._render = True
-            os.remove('./render')
-        else:
-            self._render = False

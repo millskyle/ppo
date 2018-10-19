@@ -21,7 +21,7 @@ class Placeholders(object):
         self.done_in = tf.placeholder(tf.bool, shape=[None,], name='done_in')
         self.gamma = tf.placeholder(tf.float32, shape=[], name='gamma')
 
-class DQN(algorithm):
+class DQN(Algorithm):
     def __init__(self, env, restore=True, output_path=None, flags={}):
         super().__init__(restore=restore, output_path=checkpoint_path)
         self._env = env
@@ -198,8 +198,6 @@ class DQN(algorithm):
 
 
 #HOOKS:
-
-
     def _end_of_episode(self):
         super()._end_of_episode()
 
@@ -214,24 +212,11 @@ class DQN(algorithm):
         if self._episode_counter.eval() % 50 == 0:
             self._saver.save(self._sess, './' + self._checkpoint_path + '/chkpt', global_step=self._episode_counter.eval())
 
-
     def _start_of_episode(self):
-        self._sess.run(self._env_step_counter.res)
+        super()._start_of_episode()
         _ = self._episode_reward_buffer.empty()
-        "Check to see if the 'render' file exists and set a flag"
-        if os.path.exists('./render'):
-            self.__render_requested = True
-            os.remove('./render')
-        else:
-            self.__render_requested = False
-
-
-    def _before_env_step(self):
-        self._env_step_counter.incr()
-        self._total_step_counter.incr()
 
     def _after_env_step(self, reward=None):
+        super()._after_env_step()
         if reward is not None:
             self._episode_reward_buffer.add(reward, add_until_full=False)
-        if self.__render_requested:
-            self._env.render()

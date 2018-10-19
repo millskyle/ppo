@@ -41,26 +41,14 @@ env = gym.make('CartPole-v0')
 if __name__=='__main__':
     obs_space = env.observation_space
 
-    policy = NeuralNet(env=env, label='policy')
-    old_policy = NeuralNet(env=env, label='old_policy')
 
-    ppo = Algorithm(policy=policy, old_policy=old_policy, gamma=0.95,
-                    epsilon=0.2, c_1=C_1, c_2=C_2,
-                    use_curiosity=CURIOSITY, eta=ETA,
-                    llambda=LAMBDA, beta=BETA)
-
-    saver = tf.train.Saver()
+    ppo = PPO(env=env, gamma=0.95,
+                epsilon=0.2, c_1=C_1, c_2=C_2,
+                use_curiosity=CURIOSITY, eta=ETA,
+                llambda=LAMBDA, beta=BETA, restore=RESTORE,
+                output_path='./', flags={})
 
     with tf.Session() as sess:
-        if RESTORE:
-            try:
-                saver.restore(sess, tf.train.latest_checkpoint(CHKPT_PATH))
-            except:
-                sess.run(tf.global_variables_initializer())
-        else:
-            sess.run(tf.global_variables_initializer())
-        policy.attach_session(sess)
-        old_policy.attach_session(sess)
         ppo.attach_session(sess)
 
         obs = env.reset()
@@ -68,14 +56,8 @@ if __name__=='__main__':
         success_num = 0
 
         for iteration in range(ITERATIONS):
-            ppo._start_of_episode()
+            ppo.start_of_episode()
             ppo._buffer.empty();
-            #observations = []
-            #observations_tp1 = []
-            #actions = []
-            #v_preds = []
-            #rewards_extrinsic = []
-            #rewards_intrinsic = []
             run_policy_steps = 0
 
             # buffer structure
@@ -85,9 +67,11 @@ if __name__=='__main__':
                 run_policy_steps += 1
 
                 obs = np.stack([obs]).astype(dtype=np.float32)
-                action, v_pred = policy.act(observation=obs, stochastic=True)
+                action, v_pred = ppo.policy.act(observation=obs, stochastic=True)
 
+                ppo.before_env_step()
                 next_obs, reward_E, done, info = env.step(np.asscalar(action))
+                ppo.after_env_step()
 
                 # for curiosity, apply the intrinsic reward
                 if CURIOSITY:
@@ -98,15 +82,10 @@ if __name__=='__main__':
                 ppo._buffer.add([obs, np.asscalar(action), reward_E+reward_I, done, next_obs, np.asscalar(v_pred) ],
                                 add_until_full=False )
 
-                if ppo._render:
-                    env.render()
-
-                if iteration%1000==0 and iteration > -1:
-                    saver.save(sess, CHKPT_PATH + 'model.chkpt')
 
                 if done:
                     obs = env.reset()
-                    ppo._end_of_episode()
+                    ppo.end_of_episode()
                     break
 
                 else:
