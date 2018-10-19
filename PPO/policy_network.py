@@ -1,5 +1,7 @@
 import tensorflow as tf
+import gym
 import logging
+import numpy as np
 import sys
 sys.path.append("..")
 from supporting.NN import DenseNN
@@ -35,32 +37,58 @@ from supporting.NN import DenseNN
 
 
 class PolicyNet(object):
-    def __init__(self, env, label):
+    def __init__(self, env, label, h=64):
+        #h: hidden unit size
         self._sess = None
 
+        if isinstance(env.action_space, gym.spaces.Discrete):
+            action_mode = "Discrete"
+        elif isinstance(env.action_space, gym.spaces.Box):
+            action_mode = "Continuous"
+        else:
+            print(f"Algorithm not implemented for action space type {env.action_space}")
+            raise NotImplementedError
 
         with tf.variable_scope(label):
             self.observation = tf.placeholder(dtype=tf.float32,
                                               shape=[None] + list(env.observation_space.shape),
                                               name='observation')
 
+            if action_mode == 'Discrete':
+                policy_out_size = env.action_space.n
+            elif action_mode == 'Continuous':
+                policy_out_size = np.prod(env.action_space.shape) * 2  #*2 for mu and sigma
+
             PI = DenseNN(in_=self.observation,
-                         units=[64,64,env.action_space.n],
+                         units=[h,h,policy_out_size],
                          activations=[tf.nn.tanh,]*2 + [tf.nn.softmax],
                          scope='policy'
                          )
-            self.a_prob = PI.output
+            if isinstance(env.action_space, gym.spaces.Discrete):
 
+                self.a_prob = PI.output
+
+                self.action_stochastic = tf.multinomial(tf.log(self.a_prob), num_samples=1)
+                self.action_stochastic = tf.reshape(self.action_stochastic, shape=[-1])
+                self.action_deterministic = tf.argmax(self.a_prob, axis=1)
+
+            elif isinstance(env.action_space, gym.spaces.Box):
+                #TODO: Implement continuous action space here, e.g. take the output
+                #of PI as Mu and Sigma of a distribution and sample from that,
+                #example pseudocodei
+                mu, sigma = tf.split(value=PI.output, num_or_size_splits=2, axis=1)
+                self.action_distribution = tf.distributions.Normal(loc=mu, scale=sigma)
+                self.action_stochastic = self.action_distribution.sample()
+
+                self.a_prob = self.action_distribution.prob(self.action_stochastic)
+
+
+            #Value net
             V = DenseNN(in_=self.observation,
-                        units=[64,64,1],
+                        units=[h,h,1],
                         activations=[tf.nn.tanh,]*2 + [None],
                         scope='value')
             self.v_preds = V.output
-
-            self.action_stochastic = tf.multinomial(tf.log(self.a_prob), num_samples=1)
-            self.action_stochastic = tf.reshape(self.action_stochastic, shape=[-1])
-            self.action_deterministic = tf.argmax(self.a_prob, axis=1)
-
             self.scope = tf.get_variable_scope().name
 
     @property
