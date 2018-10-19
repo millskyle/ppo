@@ -77,7 +77,7 @@ class PolicyNet(object):
                 #of PI as Mu and Sigma of a distribution and sample from that,
                 #example pseudocodei
                 mu, sigma = tf.split(value=PI.output, num_or_size_splits=2, axis=1)
-                self.action_distribution = tf.distributions.Normal(loc=mu, scale=sigma)
+                self.action_distribution = tf.distributions.Beta(mu,sigma, allow_nan_stats=False)
                 self.action_stochastic = self.action_distribution.sample()
 
                 self.a_prob = self.action_distribution.prob(self.action_stochastic)

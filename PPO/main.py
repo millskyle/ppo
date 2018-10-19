@@ -36,6 +36,7 @@ BETA = 2e-1
 #env = gym.make('MountainCar-v0')
 #env = gym.make('Carnot-v1')
 env = gym.make('CartPole-v0')
+#env = gym.make('Pendulum-v0')
 #env = gym.make('RoboschoolPong-v1')
 
 if __name__=='__main__':
@@ -70,7 +71,7 @@ if __name__=='__main__':
                 action, v_pred = ppo.policy.act(observation=obs, stochastic=True)
 
                 ppo.before_env_step()
-                next_obs, reward_E, done, info = env.step(np.asscalar(action))
+                next_obs, reward_E, done, info = env.step(action[0])
                 ppo.after_env_step()
 
                 # for curiosity, apply the intrinsic reward
