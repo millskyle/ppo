@@ -52,8 +52,8 @@ class PPO(Algorithm):
         self.make_input_placeholders() #make placeholders
 
 
-        act_probs     = self.policy.action_distribution.prob(self.actions)
-        act_probs_old = self.old_policy.action_distribution.prob(self.actions)
+        act_probs     = tf.exp(self.policy.action_distribution.log_prob(self.actions))
+        act_probs_old = tf.exp(self.old_policy.action_distribution.log_prob(self.actions))
 
 
 
