@@ -3,8 +3,6 @@ import numpy as np
 from ppo import PPO
 from policy_network import PolicyNet
 import gym
-import cleangym
-import roboschool
 import logging
 import sys
 sys.path.append("..")
@@ -34,10 +32,11 @@ LAMBDA=1e-1
 BETA = 2e-1
 
 #env = gym.make('MountainCar-v0')
+#env = gym.make('MountainCarContinuous-v0')
 #env = gym.make('Carnot-v1')
 env = gym.make('CartPole-v0')
-#env = gym.make('Pendulum-v0')
-#env = gym.make('RoboschoolPong-v1')
+#nv = gym.make('Pendulum-v0')
+#env = gym.make('RoboschoolPendulum-v1')
 
 if __name__=='__main__':
     obs_space = env.observation_space
@@ -99,7 +98,6 @@ if __name__=='__main__':
             A_t = ppo.truncated_general_advantage_estimate(T=ppo._GAE_T,
                                                            from_buffer=ppo._buffer,
                                                            V=5, r=2)
-            print (A_t)
 
             assert len(A_t)==ppo._buffer.size, f"A_t of size {len(A_t)} should be the same size as buffer of size{ppo._buffer.size}"
 

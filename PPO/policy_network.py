@@ -42,9 +42,9 @@ class PolicyNet(object):
         self._sess = None
 
         if isinstance(env.action_space, gym.spaces.Discrete):
-            action_mode = "Discrete"
+            self.action_mode = "Discrete"
         elif isinstance(env.action_space, gym.spaces.Box):
-            action_mode = "Continuous"
+            self.action_mode = "Continuous"
         else:
             print(f"Algorithm not implemented for action space type {env.action_space}")
             raise NotImplementedError
@@ -54,33 +54,34 @@ class PolicyNet(object):
                                               shape=[None] + list(env.observation_space.shape),
                                               name='observation')
 
-            if action_mode == 'Discrete':
+            if self.action_mode == 'Discrete':
                 policy_out_size = env.action_space.n
-            elif action_mode == 'Continuous':
+            elif self.action_mode == 'Continuous':
                 policy_out_size = np.prod(env.action_space.shape) * 2  #*2 for mu and sigma
 
             PI = DenseNN(in_=self.observation,
                          units=[h,h,policy_out_size],
-                         activations=[tf.nn.tanh,]*2 + [tf.nn.softmax],
+                         activations=[tf.nn.tanh,]*2 + [None],
                          scope='policy'
                          )
-            if isinstance(env.action_space, gym.spaces.Discrete):
 
-                self.a_prob = PI.output
+            if self.action_mode=='Discrete':
 
-                self.action_stochastic = tf.multinomial(tf.log(self.a_prob), num_samples=1)
-                self.action_stochastic = tf.reshape(self.action_stochastic, shape=[-1])
-                self.action_deterministic = tf.argmax(self.a_prob, axis=1)
+                self.action_distribution = tf.distributions.Categorical(probs=tf.nn.softmax(PI.output), validate_args=True)
+                self.action_stochastic = self.action_distribution.sample()
+                self.action_deterministic = tf.argmax(PI.output, axis=1)
 
-            elif isinstance(env.action_space, gym.spaces.Box):
+            elif self.action_mode == 'Continuous':
                 #TODO: Implement continuous action space here, e.g. take the output
                 #of PI as Mu and Sigma of a distribution and sample from that,
                 #example pseudocodei
                 mu, sigma = tf.split(value=PI.output, num_or_size_splits=2, axis=1)
-                self.action_distribution = tf.distributions.Beta(mu,sigma, allow_nan_stats=False)
+                sigma = tf.softmax(sigma)
+                self.action_distribution = tf.distributions.Normal(mu,sigma, allow_nan_stats=False)
+                self.action_deterministic = mu
                 self.action_stochastic = self.action_distribution.sample()
 
-                self.a_prob = self.action_distribution.prob(self.action_stochastic)
+            self.a_entropy = self.action_distribution.entropy()
 
 
             #Value net
