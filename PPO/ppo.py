@@ -33,10 +33,11 @@ class PPO(Algorithm):
     def __init__(self, env, restore, output_path, flags, gamma=0.95, epsilon=0.2, c_1=1., c_2=0.000001,
                  use_curiosity=False, eta=0.1, llambda=0.1, beta=0.2):
         super().__init__(restore=restore, output_path=output_path, flags=flags)
-        self.pins = {}
+        self.scalar_pins = {}
+        self.array_pins = {}
         """ epsilon :: clip_value """
-        self.policy = PolicyNet(env=env, label='policy', h=8)
-        self.old_policy = PolicyNet(env=env, label='old_policy', h=8)
+        self.policy = PolicyNet(env=env, label='policy', h=32)
+        self.old_policy = PolicyNet(env=env, label='old_policy', h=32)
         self.gamma = gamma
         self._use_curiosity = use_curiosity
 
@@ -51,8 +52,8 @@ class PPO(Algorithm):
         self.make_input_placeholders() #make placeholders
 
 
-        act_probs = self.policy.a_prob
-        act_probs_old = self.old_policy.a_prob
+        act_probs     = self.policy.action_distribution.prob(self.actions)
+        act_probs_old = self.old_policy.action_distribution.prob(self.actions)
 
 
 
@@ -108,8 +109,8 @@ class PPO(Algorithm):
 
 
         with tf.variable_scope('L/CLIP'):
-            self.pins['act_probs'] = tf.reduce_sum(act_probs)
-            self.pins['act_probs_old'] = tf.reduce_sum(act_probs_old)
+            self.array_pins['act_probs'] = act_probs
+            self.array_pins['act_probs_old'] = act_probs_old
             ratio = tf.exp(tf.log(act_probs) - tf.log(act_probs_old))
             #ratio = tf.divide(act_probs, act_probs_old)
             ratio_clipped = tf.clip_by_value(ratio, clip_value_min=1.-epsilon, clip_value_max=1.+epsilon)
@@ -128,7 +129,7 @@ class PPO(Algorithm):
                      )
 
         with tf.variable_scope('L/S'):
-            L_S = -tf.reduce_mean(self.policy.a_entropy )
+            L_S = tf.reduce_mean(self.policy.a_entropy )
 
         with tf.variable_scope('Loss'):
             tf.summary.scalar('L_clip', -L_clip*llambda)
@@ -138,9 +139,9 @@ class PPO(Algorithm):
             #The paper says to MAXIMIZE this loss, so let's minimize the
             #negative instead
             loss = -L_clip + c_1*L_vf - c_2*L_S
-            self.pins["L_clip"] = L_clip
-            self.pins["L_vf"] = L_vf
-            self.pins["L_S"] = L_S
+            self.scalar_pins["L_clip"] = L_clip
+            self.scalar_pins["L_vf"] = L_vf
+            self.scalar_pins["L_S"] = L_S
             if self._use_curiosity:
                 loss = llambda*loss + (1-beta)*L_I + beta*L_F
                 tf.summary.scalar('L_inverse', (1-beta)*L_I )
@@ -192,8 +193,12 @@ class PPO(Algorithm):
         #run the training op, get summaries
 
 
-        pin_ops = [self.pins[key] for key in sorted(self.pins)]
-        pin_names = [key for key in sorted(self.pins)]
+        #for pin in self.array_pins:
+    #        print(pin, self.sess.run(self.array_pins[pin], feed_dict=feed_dict))
+
+
+        pin_ops = [self.scalar_pins[key] for key in sorted(self.scalar_pins)]
+        pin_names = [key for key in sorted(self.scalar_pins)]
 
         vals = self.sess.run(pin_ops, feed_dict=feed_dict)
 

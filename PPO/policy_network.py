@@ -67,7 +67,7 @@ class PolicyNet(object):
 
             if self.action_mode=='Discrete':
 
-                self.action_distribution = tf.distributions.Categorical(logits=PI.output, validate_args=True)
+                self.action_distribution = tf.distributions.Categorical(probs=tf.nn.softmax(PI.output), validate_args=True)
                 self.action_stochastic = self.action_distribution.sample()
                 self.action_deterministic = tf.argmax(PI.output, axis=1)
 
@@ -76,12 +76,11 @@ class PolicyNet(object):
                 #of PI as Mu and Sigma of a distribution and sample from that,
                 #example pseudocodei
                 mu, sigma = tf.split(value=PI.output, num_or_size_splits=2, axis=1)
-                sigma = tf.sigmoid(sigma)
+                sigma = tf.softmax(sigma)
                 self.action_distribution = tf.distributions.Normal(mu,sigma, allow_nan_stats=False)
                 self.action_deterministic = mu
                 self.action_stochastic = self.action_distribution.sample()
 
-            self.a_prob = self.action_distribution.prob(self.action_stochastic)
             self.a_entropy = self.action_distribution.entropy()
 
 
