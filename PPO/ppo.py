@@ -19,7 +19,10 @@ class PPO(Algorithm):
 
 
     def make_input_placeholders(self):
-        self.actions = tf.placeholder(dtype=tf.int32, shape=[None], name='actions')
+        if self.policy.action_mode == "Discrete":
+            self.actions = tf.placeholder(dtype=tf.int32, shape=[None], name='actions')
+        else:
+            self.actions = tf.placeholder(dtype=tf.float32, shape=[None], name='actions')
         self.rewards = tf.placeholder(dtype=tf.float32, shape=[None], name='reward')
         self.v_preds_next = tf.placeholder(dtype=tf.float32, shape=[None], name='value_pred_next')
         self.advantage_estimate = tf.placeholder(dtype=tf.float32, shape=[None], name='advantage_estimate')
@@ -31,7 +34,7 @@ class PPO(Algorithm):
 
 
     def __init__(self, env, restore, output_path, flags, gamma=0.95, epsilon=0.2, c_1=1., c_2=0.000001,
-                 use_curiosity=False, eta=0.1, llambda=0.1, beta=0.2):
+                 eta=0.1, llambda=0.1, beta=0.2):
         super().__init__(restore=restore, output_path=output_path, flags=flags)
         self.scalar_pins = {}
         self.array_pins = {}
@@ -39,11 +42,10 @@ class PPO(Algorithm):
         self.policy = PolicyNet(env=env, label='policy', h=32)
         self.old_policy = PolicyNet(env=env, label='old_policy', h=32)
         self.gamma = gamma
-        self._use_curiosity = use_curiosity
 
         self.__weight_update_counter = 0
 
-        self._buffer = Buffer(maxlen=10000, prioritized=False)
+        self._buffer = Buffer(maxlen=100000, prioritized=False)
 
         self._env = env
 
@@ -52,66 +54,15 @@ class PPO(Algorithm):
         self.make_input_placeholders() #make placeholders
 
 
-        act_probs     = tf.exp(self.policy.action_distribution.log_prob(self.actions))
-        act_probs_old = tf.exp(self.old_policy.action_distribution.log_prob(self.actions))
 
 
-
-        ### Curiosity
-#        if self._use_curiosity:
-#            with tf.variable_scope('curiosity'):
-#                a_t = tf.cast(tf.one_hot(indices=self.actions, depth=self.policy.a_prob.shape[1], on_value=1, off_value=0), tf.float32)
-#                self.action_taken_onehot = a_t
-#                s_t = self.policy.observation
-#                self.observation_tp1 = tf.placeholder(dtype=tf.float32,
-#                                                  shape=self.policy.observation.shape,
-#                                                  name='observation_tp1')
-#                s_tp1 = self.observation_tp1
-#
-#                #encode the observation. This could be any type of neural net.
-#                #if the observation is an image, probably want convolutional
-#                inverse_nn_t = DenseNN(in_=s_t,
-#                                     units=[16,32,64],
-#                                     activations=[tf.nn.selu,]*3,
-#                                     scope='curiosity_inverse')
-#                #encode the observation at time t+1 with the same neural net (and
-#                #same weights)
-#                inverse_nn_tp1 = DenseNN(in_=s_tp1,
-#                                          units=[16,32,64],
-#                                          activations=[tf.nn.selu,]*3,
-#                                          scope='curiosity_inverse')
-#
-#                joined = tf.concat((inverse_nn_t.output, inverse_nn_tp1.output), axis=1)
-#
-#                inverse_nn = DenseNN(in_=joined,
-#                                     units=[64,a_t.shape[1]],
-#                                     activations=[tf.nn.selu,None],
-#                                     scope='curiosity_inverse_enc')
-#                self._curiosity_a_pred = inverse_nn.output
-#                inp_forward = tf.concat((self._curiosity_a_pred, s_t), axis=1)
-#                forward_nn = DenseNN(in_=inp_forward,
-#                                     units=[64, inverse_nn_tp1.output.shape[1]],
-#                                     activations=[tf.nn.selu,] +[None],
-#                                     scope='curiosity_forward'
-#                                     )
-#        if self._use_curiosity:
-#            #we want to train the inverse network to predict the correct action:
-#            with tf.variable_scope('L/Inverse'):
-#                L_I = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
-#                                                    logits=self._curiosity_a_pred,
-#                                                    labels=a_t))
-#
-#                #L_I = tf.reduce_mean(tf.square(self._curiosity_a_pred-a_t))
-#            with tf.variable_scope('L/Forward'):
-#                L_F = tf.reduce_mean(tf.nn.l2_loss(forward_nn.output-inverse_nn_tp1.output))
-#
-#            self.reward_intrinsic = eta * tf.reduce_mean(tf.nn.l2_loss(forward_nn.output-inverse_nn_tp1.output))
-
+        act_probs     = self.policy.action_distribution.log_prob(self.actions)
+        act_probs_old = self.old_policy.action_distribution.log_prob(self.actions)
 
         with tf.variable_scope('L/CLIP'):
-            self.array_pins['act_probs'] = act_probs
-            self.array_pins['act_probs_old'] = act_probs_old
-            ratio = tf.exp(tf.log(act_probs) - tf.log(act_probs_old))
+            #self.scalar_pins['act_probs'] = tf.reduce_sum(act_probs)
+            #self.scalar_pins['act_probs_old'] = tf.reduce_sum(act_probs_old)
+            ratio = tf.exp(act_probs - act_probs_old)
             #ratio = tf.divide(act_probs, act_probs_old)
             ratio_clipped = tf.clip_by_value(ratio, clip_value_min=1.-epsilon, clip_value_max=1.+epsilon)
             L_clip = tf.reduce_mean(
@@ -132,9 +83,9 @@ class PPO(Algorithm):
             L_S = tf.reduce_mean(self.policy.a_entropy )
 
         with tf.variable_scope('Loss'):
-            tf.summary.scalar('L_clip', -L_clip*llambda)
-            tf.summary.scalar('c_1*L_vf', c_1*L_vf*llambda)
-            tf.summary.scalar('c_2*L_S', -c_2*L_S*llambda)
+            tf.summary.scalar('L_clip', L_clip)
+            tf.summary.scalar('c_1*L_vf', c_1*L_vf)
+            tf.summary.scalar('c_2*L_S', c_2*L_S)
             #loss = (L_clip - c_1*L_vf + c_2*L_S)
             #The paper says to MAXIMIZE this loss, so let's minimize the
             #negative instead
@@ -142,26 +93,15 @@ class PPO(Algorithm):
             self.scalar_pins["L_clip"] = L_clip
             self.scalar_pins["L_vf"] = L_vf
             self.scalar_pins["L_S"] = L_S
-            if self._use_curiosity:
-                loss = llambda*loss + (1-beta)*L_I + beta*L_F
-                tf.summary.scalar('L_inverse', (1-beta)*L_I )
-                tf.summary.scalar('L_forward', beta*L_F)
 
         vars_to_optimize = []
         for var in self.policy.get_variables(trainable_only=True):
             tf.summary.histogram(var.name, var)
             vars_to_optimize.append(var)
 
-        if self._use_curiosity:
-            for var in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='curiosity'):
-                tf.summary.histogram(var.name, var)
-                vars_to_optimize.append(var)
-
         with tf.variable_scope('optimizer'):
             optimizer = tf.train.AdamOptimizer(learning_rate=1e-4, epsilon=1e-5)
             self.train_op = optimizer.minimize(loss, var_list=vars_to_optimize)
-            #icm_optimizer = tf.train.AdamOptimizer(learning_rate=1e-4, epsilon=1e-5)
-            #self.icm_train_op = icm_optimizer.minimize()
         self._summaries = tf.summary.merge_all()
 
 
@@ -187,8 +127,6 @@ class PPO(Algorithm):
                         self.v_preds_next: v_preds_next,
                         self.advantage_estimate: advantage_estimate
                     }
-        if self._use_curiosity:
-            feed_dict[self.observation_tp1] = observations_tp1
 
         #run the training op, get summaries
 
@@ -214,11 +152,6 @@ class PPO(Algorithm):
 
         _summary, _ = self.sess.run([self._summaries, self.train_op], feed_dict=feed_dict)
 
-
-        if verbose and self._use_curiosity:
-            pred, taken = self.sess.run([self._curiosity_a_pred, self.action_taken_onehot], feed_dict=feed_dict)
-            logging.info("A_pred:" + str(pred[0]))
-            logging.info("A_taken:" + str(taken[0]))
 
         self.__weight_update_counter += 1
         if self.__weight_update_counter%10==0:

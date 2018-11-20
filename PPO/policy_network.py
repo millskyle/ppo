@@ -6,34 +6,6 @@ import sys
 sys.path.append("..")
 from supporting.NN import DenseNN
 
-#class DenseNN(object):
-#    """ Creates a dense, fully-connected neural net of len(units) layers of
-#        width units. Output node accessible through  """
-#    def __init__(self, in_, units, activations, scope, reuse=tf.AUTO_REUSE):
-#        self._in = in_
-#        assert len(units)==len(activations), "Each unit must have a matching activation."
-#        self._units = units
-#        self._activations = activations
-#        self.scope = scope
-#
-#        out_ = self._in
-#        with tf.variable_scope(self.scope, reuse=reuse):
-#            for i in range(len(self._units)):
-#                layer_name='layer_{0}'.format(i)
-#                logging.info("Building dense layer {} with {} units and {} activation.".format(layer_name, self._units[i], self._activations[i]))
-#                out_ = tf.layers.dense(inputs=out_,
-#                                      units=self._units[i],
-#                                      activation=self._activations[i],
-#                                      name='layer_{0}'.format(i))
-#            self._output = out_
-#    @property
-#    def output(self):
-#        return self._output
-#
-#    def get_variables(self):
-#        return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, self.scope)
-
-
 
 
 class PolicyNet(object):
@@ -57,7 +29,8 @@ class PolicyNet(object):
             if self.action_mode == 'Discrete':
                 policy_out_size = env.action_space.n
             elif self.action_mode == 'Continuous':
-                policy_out_size = np.prod(env.action_space.shape) * 2  #*2 for mu and sigma
+                policy_out_size = np.prod(env.action_space.shape)
+
 
             PI = DenseNN(in_=self.observation,
                          units=[h,h,policy_out_size],
@@ -75,20 +48,29 @@ class PolicyNet(object):
                 #TODO: Implement continuous action space here, e.g. take the output
                 #of PI as Mu and Sigma of a distribution and sample from that,
                 #example pseudocodei
-                mu, sigma = tf.split(value=PI.output, num_or_size_splits=2, axis=1)
-                sigma = tf.softmax(sigma)
-                self.action_distribution = tf.distributions.Normal(mu,sigma, allow_nan_stats=False)
+                sigma = tf.get_variable("action_sigma",
+                            shape=(policy_out_size,),
+                            dtype=tf.float32,
+                            initializer=tf.ones_initializer)
+                sigma = tf.nn.sigmoid(sigma) #make sure it never goes/starts negative
+                mu = PI.output
+                self.action_distribution = tf.distributions.Normal(loc=mu,
+                                                                   scale=sigma,
+                                                                   allow_nan_stats=False)
                 self.action_deterministic = mu
                 self.action_stochastic = self.action_distribution.sample()
 
-            self.a_entropy = self.action_distribution.entropy()
+                self.action_distribution_sigma = sigma
+                self.action_distribution_mean = mu
 
+            self.a_entropy = self.action_distribution.entropy()
 
             #Value net
             V = DenseNN(in_=self.observation,
                         units=[h,h,1],
                         activations=[tf.nn.tanh,]*2 + [None],
                         scope='value')
+
             self.v_preds = V.output
             self.scope = tf.get_variable_scope().name
 
