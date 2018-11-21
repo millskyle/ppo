@@ -3,6 +3,7 @@ import numpy as np
 from ppo import PPO
 from policy_network import PolicyNet
 import sagym
+import roboschool
 import gym
 import logging
 import sys
@@ -33,7 +34,7 @@ N_ACTORS = 32
 #env = gym.make('Carnot-v1')
 env = gym.make('CartPole-v0')
 #env = gym.make('Pendulum-v0')
-#env = gym.make('RoboschoolPendulum-v1')
+#env = gym.make('RoboschoolHopper-v1')
 #env = gym.make("SAContinuous-v0")
 
 if __name__=='__main__':
@@ -66,14 +67,14 @@ if __name__=='__main__':
 
                 obs = np.stack([obs]).astype(dtype=np.float32)
                 action, v_pred = ppo.policy.act(observation=obs, stochastic=True)
+                action = action[0]
 
                 ppo.before_env_step()
-                next_obs, reward_E, done, info = env.step(action[0])
+                next_obs, reward_E, done, info = env.step(action)
                 ppo.after_env_step()
 
-                ppo._buffer.add([obs, np.asscalar(action), reward_E, done, next_obs, np.asscalar(v_pred) ],
+                ppo._buffer.add([obs, action, reward_E, done, next_obs, np.asscalar(v_pred) ],
                                 add_until_full=False )
-
 
                 if done:
                     obs = env.reset()
@@ -83,8 +84,7 @@ if __name__=='__main__':
                 else:
                     obs = next_obs
 
-
-            ppo._GAE_T = 128  #TODO move this elsewhere
+            ppo._GAE_T = 2048  #TODO move this elsewhere
             #Get a buffer's worth of advantage estimates.
             A_t = ppo.truncated_general_advantage_estimate(T=ppo._GAE_T,
                                                            from_buffer=ppo._buffer,
@@ -104,8 +104,8 @@ if __name__=='__main__':
 
             if iteration > 0 and iteration % N_ACTORS == 0:
 
-                for batch in range(15):
-                    data_ = ppo._buffer.sample(4096)
+                for batch in range(10):
+                    data_ = ppo._buffer.sample(64)
                     ind_ = ppo._buffer.get_last_returned_indices()
                     o = np.array([d[0] for d in data_]).reshape([-1] + list(obs_space.shape))
                     otp1 = np.array([d[4] for d in data_]).reshape([-1] + list(obs_space.shape))

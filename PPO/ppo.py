@@ -22,7 +22,7 @@ class PPO(Algorithm):
         if self.policy.action_mode == "Discrete":
             self.actions = tf.placeholder(dtype=tf.int32, shape=[None], name='actions')
         else:
-            self.actions = tf.placeholder(dtype=tf.float32, shape=[None], name='actions')
+            self.actions = tf.placeholder(dtype=tf.float32, shape=[None,np.prod(self._env.action_space.shape)], name='actions')
         self.rewards = tf.placeholder(dtype=tf.float32, shape=[None], name='reward')
         self.v_preds_next = tf.placeholder(dtype=tf.float32, shape=[None], name='value_pred_next')
         self.advantage_estimate = tf.placeholder(dtype=tf.float32, shape=[None], name='advantage_estimate')
@@ -39,8 +39,8 @@ class PPO(Algorithm):
         self.scalar_pins = {}
         self.array_pins = {}
         """ epsilon :: clip_value """
-        self.policy = PolicyNet(env=env, label='policy', h=32)
-        self.old_policy = PolicyNet(env=env, label='old_policy', h=32)
+        self.policy = PolicyNet(env=env, label='policy', h=8)
+        self.old_policy = PolicyNet(env=env, label='old_policy', h=8)
         self.gamma = gamma
 
         self.__weight_update_counter = 0
@@ -59,9 +59,17 @@ class PPO(Algorithm):
         act_probs     = self.policy.action_distribution.log_prob(self.actions)
         act_probs_old = self.old_policy.action_distribution.log_prob(self.actions)
 
+        try:
+            self.scalar_pins["log(a_sigma)"] = self.policy.action_distribution_sigma[0]
+            self.scalar_pins["a_mu"] = self.policy.action_distribution_mean[0][0]
+        except:
+            pass
+
         with tf.variable_scope('L/CLIP'):
-            #self.scalar_pins['act_probs'] = tf.reduce_sum(act_probs)
-            #self.scalar_pins['act_probs_old'] = tf.reduce_sum(act_probs_old)
+            if self.policy.action_mode=='Continuous':
+                act_probs = tf.reduce_sum(act_probs, axis=1) #actions are independent and log probs are additive
+                act_probs_old = tf.reduce_sum(act_probs_old, axis=1) #actions are independent and log probs are additive
+
             ratio = tf.exp(act_probs - act_probs_old)
             #ratio = tf.divide(act_probs, act_probs_old)
             ratio_clipped = tf.clip_by_value(ratio, clip_value_min=1.-epsilon, clip_value_max=1.+epsilon)
@@ -100,7 +108,7 @@ class PPO(Algorithm):
             vars_to_optimize.append(var)
 
         with tf.variable_scope('optimizer'):
-            optimizer = tf.train.AdamOptimizer(learning_rate=1e-4, epsilon=1e-5)
+            optimizer = tf.train.AdamOptimizer(learning_rate=3e-4, epsilon=1e-5)
             self.train_op = optimizer.minimize(loss, var_list=vars_to_optimize)
         self._summaries = tf.summary.merge_all()
 
@@ -139,6 +147,9 @@ class PPO(Algorithm):
         pin_names = [key for key in sorted(self.scalar_pins)]
 
         vals = self.sess.run(pin_ops, feed_dict=feed_dict)
+
+        #for i,val in enumerate(vals):
+        #    print (pin_names[i], val.shape)
 
         formatstr = "{:>20s}"*len(vals)
         print(formatstr.format(*pin_names))
