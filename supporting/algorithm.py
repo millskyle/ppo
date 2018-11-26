@@ -103,6 +103,7 @@ class Algorithm(object):
         self._sess.run(self._env_step_counter.res)
         """Check to see if the 'render' file exists and set a flag"""
         if os.path.exists('./render'):
+            self._saver.save(sess=self.sess, save_path="./chkpts/chkpt", global_step=self._episode_counter.var)
             self.__render_requested = True
             os.remove('./render')
         else:

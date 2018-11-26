@@ -12,7 +12,7 @@ class DenseNN(object):
         self.scope = scope
 
         out_ = tf.layers.flatten(inputs=self._in, name='flatten')
-        with tf.variable_scope(self.scope, reuse=reuse):
+        with tf.variable_scope(self.scope, reuse=reuse,initializer=tf.glorot_normal_initializer):
             for i in range(len(self._units)):
                 layer_name='layer_{0}'.format(i)
                 logging.info("Building dense layer {} with {} units and {} activation.".format(layer_name, self._units[i], self._activations[i]))

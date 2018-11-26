@@ -29,13 +29,16 @@ LAMBDA=1e-1
 BETA = 2e-1
 N_ACTORS = 32
 
-#env = gym.make('MountainCar-v0')
-#env = gym.make('MountainCarContinuous-v0')
-#env = gym.make('Carnot-v1')
-env = gym.make('CartPole-v0')
-#env = gym.make('Pendulum-v0')
-#env = gym.make('RoboschoolHopper-v1')
-#env = gym.make("SAContinuous-v0")
+#ENV = 'MountainCar-v0'
+#ENV = 'MountainCarContinuous-v0'
+#ENV = 'Carnot-v1'
+#ENV = 'CartPole-v0'
+#ENV = 'Pendulum-v0'
+#ENV = "RoboschoolInvertedPendulum-v1"
+#ENV = 'RoboschoolHopper-v1'
+ENV = "SAContinuous-v0"
+env = gym.make(ENV)
+
 
 if __name__=='__main__':
     obs_space = env.observation_space

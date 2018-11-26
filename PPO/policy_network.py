@@ -51,7 +51,7 @@ class PolicyNet(object):
                 logsigma = tf.get_variable("action_sigma",
                             shape=(policy_out_size,),
                             dtype=tf.float32,
-                            initializer=tf.zeros_initializer, trainable=False)
+                            initializer=tf.zeros_initializer, trainable=True)
                 #sigma = tf.nn.sigmoid(sigma) #make sure it never goes/starts negative
                 mu = PI.output
                 self.action_distribution = tf.distributions.Normal(loc=mu,

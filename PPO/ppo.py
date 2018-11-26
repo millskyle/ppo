@@ -45,7 +45,7 @@ class PPO(Algorithm):
 
         self.__weight_update_counter = 0
 
-        self._buffer = Buffer(maxlen=100000, prioritized=False)
+        self._buffer = Buffer(maxlen=20000, prioritized=False)
 
         self._env = env
 
