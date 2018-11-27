@@ -112,6 +112,7 @@ class PPO(Algorithm):
             self.train_op = optimizer.minimize(loss, var_list=vars_to_optimize)
         self._summaries = tf.summary.merge_all()
 
+        self.make_saver()
 
 
 

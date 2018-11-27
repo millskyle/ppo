@@ -13,6 +13,7 @@ class Algorithm(object):
     def __init__(self, restore, output_path, flags):
         self.__sess = None
         self.__restore = restore
+        self.__render_mode = None
         self._output_path = output_path
         self._checkpoint_path = self._output_path + '/chkpts'
         self._log_path = self._output_path + './logs'
@@ -29,8 +30,12 @@ class Algorithm(object):
                            self._weight_update_counter]
 
 
+    def make_saver(self):
         self._saver = tf.train.Saver(max_to_keep=5, keep_checkpoint_every_n_hours=10./60.)
 
+
+    def set_render_mode(self, mode):
+        self.__render_mode = mode
 
     @property
     def sess(self):
@@ -116,4 +121,4 @@ class Algorithm(object):
 
     def _after_env_step(self):
         if self.__render_requested:
-            self._env.render()
+            self._env.render(mode=self.__render_mode)

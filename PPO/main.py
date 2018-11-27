@@ -3,7 +3,6 @@ import numpy as np
 from ppo import PPO
 from policy_network import PolicyNet
 import sagym
-import roboschool
 import gym
 import logging
 import sys
@@ -39,21 +38,36 @@ N_ACTORS = 32
 ENV = "SAContinuous-v0"
 env = gym.make(ENV)
 
+import pdb
+
+#env.observation_space = gym.spaces.Box(low=-1, high=1, shape=(3,))
+env.observation_space = gym.spaces.Box(low=-1, high=1, shape=(50,256))
+
+
+def observation_process(obs):
+    """Function to take the (raw) observation from gym environment
+    and get it to a form that we can feed into network, save in buffer,
+    etc"""
+    O, B, M, E = obs
+    return np.expand_dims(np.array(O), axis=0)
+
+#observation_process = lambda x : np.expand_dims(x, axis=0)
 
 if __name__=='__main__':
     obs_space = env.observation_space
-
 
     ppo = PPO(env=env, gamma=0.99,
                 epsilon=0.2, c_1=C_1, c_2=C_2,
                 eta=ETA,
                 llambda=LAMBDA, beta=BETA, restore=RESTORE,
                 output_path='./', flags={})
+    ppo.set_render_mode(mode='mpl')
 
     with tf.Session() as sess:
         ppo.attach_session(sess)
-
-        obs = env.reset()
+        obs = observation_process(env.reset())
+        #pdb.set_trace()
+        #pdb.set_trace()
         reward_E = 0
         success_num = 0
 
@@ -68,19 +82,21 @@ if __name__=='__main__':
             while True:
                 run_policy_steps += 1
 
-                obs = np.stack([obs]).astype(dtype=np.float32)
+                #obs = np.expand_dims(np.array(obs),i axis=0)
+                logging.debug(":main.py: obs.shape={obs.shape}")
                 action, v_pred = ppo.policy.act(observation=obs, stochastic=True)
                 action = action[0]
 
                 ppo.before_env_step()
-                next_obs, reward_E, done, info = env.step(action)
+                _obs, reward_E, done, info = env.step(action)
+                next_obs = observation_process(_obs)
                 ppo.after_env_step()
 
                 ppo._buffer.add([obs, action, reward_E, done, next_obs, np.asscalar(v_pred) ],
                                 add_until_full=False )
 
                 if done:
-                    obs = env.reset()
+                    obs = observation_process(env.reset())
                     ppo.end_of_episode()
                     break
 

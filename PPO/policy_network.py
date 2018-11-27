@@ -90,7 +90,8 @@ class PolicyNet(object):
             action_op = self.action_stochastic
         else:
             action_op = self.action_deterministic
-
+        logging.debug(f"observation.shape={observation.shape} (data)")
+        logging.debug(f"self.observation.shape={self.observation.shape} (placeholder)")
         return self.sess.run([action_op, self.v_preds], feed_dict={self.observation: observation})
 
     def get_action_probabilities(self, observation):
