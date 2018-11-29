@@ -5,6 +5,7 @@ import numpy as np
 import sys
 sys.path.append("..")
 from supporting.NN import DenseNN
+from sagym.nn import Conv2dCatNN
 
 class PolicyNet(object):
     def __init__(self, env, label, h=64):
@@ -33,6 +34,11 @@ class PolicyNet(object):
             elif self.action_mode == 'Continuous':
                 policy_out_size = np.prod(env.action_space.shape)
 
+            #PI = Conv2dCatNN(in_=self.observation,
+            #                 out_size=policy_out_size,
+            #                 scope='policy'
+            #                 )
+
             PI = DenseNN(in_=self.observation,
                          units=[h,h,policy_out_size],
                          activations=[tf.nn.tanh,]*2 + [None],
@@ -42,6 +48,7 @@ class PolicyNet(object):
             if self.action_mode=='Discrete':
                 self.action_distribution = tf.distributions.Categorical(probs=tf.nn.softmax(PI.output), validate_args=True)
                 self.action_stochastic = self.action_distribution.sample()
+                dtype=tf.float32,
                 self.action_deterministic = tf.argmax(PI.output, axis=1)
 
             elif self.action_mode == 'Continuous':
@@ -50,7 +57,6 @@ class PolicyNet(object):
                 #example pseudocodei
                 logsigma = tf.get_variable("action_sigma",
                             shape=(policy_out_size,),
-                            dtype=tf.float32,
                             initializer=tf.zeros_initializer, trainable=True)
                 #sigma = tf.nn.sigmoid(sigma) #make sure it never goes/starts negative
                 mu = PI.output
@@ -66,6 +72,10 @@ class PolicyNet(object):
             self.a_entropy = self.action_distribution.entropy()
 
             #Value net
+            #V = Conv2dCatNN(in_=self.observation,
+            #                out_size=policy_out_size,
+            #                scope='value'
+            #               )
             V = DenseNN(in_=self.observation,
                         units=[h,h,1],
                         activations=[tf.nn.tanh,]*2 + [None],

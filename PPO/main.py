@@ -5,6 +5,7 @@ from policy_network import PolicyNet
 import sagym
 import gym
 import logging
+import roboschool
 import sys
 sys.path.append("..")
 from supporting.utility import get_log_path
@@ -20,12 +21,13 @@ ITERATIONS = 100000000
 CHKPT_PATH = './model/'
 
 C_1 = 0.1
-C_2 = 0.1 #0 = no entropy
+C_2 = 0.0 #0 = no entropy
 RESTORE = True
 CURIOSITY = False
 ETA = 0.2
 LAMBDA=1e-1
 BETA = 2e-1
+GAE_T = 512
 N_ACTORS = 32
 
 #ENV = 'MountainCar-v0'
@@ -33,25 +35,38 @@ N_ACTORS = 32
 #ENV = 'Carnot-v1'
 #ENV = 'CartPole-v0'
 #ENV = 'Pendulum-v0'
-#ENV = "RoboschoolInvertedPendulum-v1"
+ENV = "RoboschoolInvertedPendulum-v1"
+ENV = "RoboschoolInvertedPendulumSwingup-v1"
 #ENV = 'RoboschoolHopper-v1'
-ENV = "SAContinuous-v0"
+#ENV = "SAContinuous-v0"
 env = gym.make(ENV)
 
 import pdb
 
-#env.observation_space = gym.spaces.Box(low=-1, high=1, shape=(3,))
-env.observation_space = gym.spaces.Box(low=-1, high=1, shape=(50,256))
-
+#env.observation_space = gym.spaces.Box(low=-1, high=1, shape=(16,16,50+1))
+#SPIN_ARRAY_SHAPE = (16,16,50)
 
 def observation_process(obs):
     """Function to take the (raw) observation from gym environment
     and get it to a form that we can feed into network, save in buffer,
     etc"""
     O, B, M, E = obs
-    return np.expand_dims(np.array(O), axis=0)
+    O = np.array(O) # (reps, spins)
+    O = np.reshape(np.transpose(O), SPIN_ARRAY_SHAPE) #(Lx, Ly, reps)
+    O = np.expand_dims(O, axis=0) # (1, Lx, Ly, reps)
 
-#observation_process = lambda x : np.expand_dims(x, axis=0)
+
+    aux = np.zeros_like(O[:,:,:,0])  # (1, Lx, Ly)
+    aux[0,0,0] = B
+    aux[0,1,0] = 1/B
+    aux = np.expand_dims(aux, axis=-1)  # (1, Lx, Ly, 1)
+
+
+    return np.concatenate((O,aux), axis=-1) # (1, Lx, Ly, ch+1)
+
+
+
+observation_process = lambda x : np.expand_dims(x, axis=0)
 
 if __name__=='__main__':
     obs_space = env.observation_space
@@ -61,7 +76,7 @@ if __name__=='__main__':
                 eta=ETA,
                 llambda=LAMBDA, beta=BETA, restore=RESTORE,
                 output_path='./', flags={})
-    ppo.set_render_mode(mode='mpl')
+    ppo.set_render_mode(mode='human')
 
     with tf.Session() as sess:
         ppo.attach_session(sess)
@@ -103,7 +118,7 @@ if __name__=='__main__':
                 else:
                     obs = next_obs
 
-            ppo._GAE_T = 2048  #TODO move this elsewhere
+            ppo._GAE_T = GAE_T  #TODO move this elsewhere
             #Get a buffer's worth of advantage estimates.
             A_t = ppo.truncated_general_advantage_estimate(T=ppo._GAE_T,
                                                            from_buffer=ppo._buffer,
