@@ -45,7 +45,7 @@ class PPO(Algorithm):
 
         self.__weight_update_counter = 0
 
-        self._buffer = Buffer(maxlen=20000, prioritized=False)
+        self._buffer = Buffer(maxlen=65536, prioritized=False)
 
         self._env = env
 
@@ -61,6 +61,7 @@ class PPO(Algorithm):
 
         try:
             self.scalar_pins["log(a_sigma)"] = self.policy.action_distribution_sigma[0]
+            q
             self.scalar_pins["a_mu"] = self.policy.action_distribution_mean[0][0]
         except:
             pass
@@ -108,7 +109,7 @@ class PPO(Algorithm):
             vars_to_optimize.append(var)
 
         with tf.variable_scope('optimizer'):
-            optimizer = tf.train.AdamOptimizer(learning_rate=3e-4, epsilon=1e-5)
+            optimizer = tf.train.AdamOptimizer(learning_rate=3e-5)
             self.train_op = optimizer.minimize(loss, var_list=vars_to_optimize)
         self._summaries = tf.summary.merge_all()
 

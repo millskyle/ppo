@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 from ppo import PPO
 from policy_network import PolicyNet
-import sagym
+#import sagym
 import gym
 import logging
 import roboschool
@@ -21,7 +21,7 @@ ITERATIONS = 100000000
 CHKPT_PATH = './model/'
 
 C_1 = 0.1
-C_2 = 0.0 #0 = no entropy
+C_2 = 0.0001 #0 = no entropy
 RESTORE = True
 CURIOSITY = False
 ETA = 0.2
@@ -35,9 +35,9 @@ N_ACTORS = 32
 #ENV = 'Carnot-v1'
 #ENV = 'CartPole-v0'
 #ENV = 'Pendulum-v0'
-ENV = "RoboschoolInvertedPendulum-v1"
-ENV = "RoboschoolInvertedPendulumSwingup-v1"
-#ENV = 'RoboschoolHopper-v1'
+#ENV = "RoboschoolInvertedPendulum-v1"
+#ENV = "RoboschoolInvertedPendulumSwingup-v1"
+ENV = 'RoboschoolHopper-v1'
 #ENV = "SAContinuous-v0"
 env = gym.make(ENV)
 
@@ -65,8 +65,33 @@ def observation_process(obs):
     return np.concatenate((O,aux), axis=-1) # (1, Lx, Ly, ch+1)
 
 
+class DynamicNormalizer(object):
+    def __init__(self, columns, N):
+        logging.info("Creating dynamic normalizer with {} columns normalizing to the last {} examples".format(columns, N))
+        self.data = np.empty((N, columns))
+        self.data[:] = np.nan
+    
+    def normalize(self, ex):
+        assert len(ex) == self.data.shape[1]
+        self.data = np.roll(self.data, 1, axis=1)
+        self.data[0,:] = ex
+        mean, std = self.compute_moments()
+        return (ex - mean) / (std + 0.0001)
 
-observation_process = lambda x : np.expand_dims(x, axis=0)
+    def compute_moments(self):
+        mean = np.nanmean(self.data, axis=0)
+        std = np.nanstd(self.data, axis=0)
+        return mean, std
+
+
+obs_norm = DynamicNormalizer(columns=env.observation_space.shape[0], N=1000)
+
+def observation_process(obs):
+    print(obs)
+    obs = obs_norm.normalize(obs)
+    return np.expand_dims(obs, axis=0)
+
+#observation_process = lambda x : np.expand_dims(x, axis=0)
 
 if __name__=='__main__':
     obs_space = env.observation_space
@@ -90,6 +115,7 @@ if __name__=='__main__':
             ppo.start_of_episode()
             ppo._buffer.empty();
             run_policy_steps = 0
+            ep_reward = 0
 
             # buffer structure
             # [ obs, a, r_total, d, obs_tp1, v_pred ]
@@ -109,8 +135,14 @@ if __name__=='__main__':
 
                 ppo._buffer.add([obs, action, reward_E, done, next_obs, np.asscalar(v_pred) ],
                                 add_until_full=False )
+                
+                ep_reward += reward_E
 
                 if done:
+                    with tf.variable_scope("Rewards"):
+                        ppo._summary_writer.add_summary(tf.Summary(value=[tf.Summary.Value(tag='reward',
+                                                                                           simple_value=ep_reward
+                                                                                          )]), iteration)
                     obs = observation_process(env.reset())
                     ppo.end_of_episode()
                     break
@@ -130,16 +162,14 @@ if __name__=='__main__':
             V_t, _ = ppo._buffer.dump_column(col=5)
             V_tp1 = V_t[1:] + [0,]
 
-            episode_reward, _ = ppo._buffer.dump_column(col=2)
-            with tf.variable_scope("Rewards"):
-                ppo._summary_writer.add_summary(tf.Summary(value=[tf.Summary.Value(tag='reward', simple_value=sum(episode_reward))]), iteration)
+#            episode_reward, _ = ppo._buffer.dump_column(col=2)
 
             ppo.assign_new_to_old()
 
             if iteration > 0 and iteration % N_ACTORS == 0:
 
-                for batch in range(10):
-                    data_ = ppo._buffer.sample(64)
+                for batch in range(16):
+                    data_ = ppo._buffer.sample(1024)
                     ind_ = ppo._buffer.get_last_returned_indices()
                     o = np.array([d[0] for d in data_]).reshape([-1] + list(obs_space.shape))
                     otp1 = np.array([d[4] for d in data_]).reshape([-1] + list(obs_space.shape))

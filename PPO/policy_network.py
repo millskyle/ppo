@@ -8,7 +8,7 @@ from supporting.NN import DenseNN
 from sagym.nn import Conv2dCatNN
 
 class PolicyNet(object):
-    def __init__(self, env, label, h=64):
+    def __init__(self, env, label, h=16):
         #h: hidden unit size
         self._sess = None
 
