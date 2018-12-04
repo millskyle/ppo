@@ -73,7 +73,7 @@ class DynamicNormalizer(object):
     
     def normalize(self, ex):
         assert len(ex) == self.data.shape[1]
-        self.data = np.roll(self.data, 1, axis=1)
+        self.data = np.roll(self.data, 1, axis=0)
         self.data[0,:] = ex
         mean, std = self.compute_moments()
         return (ex - mean) / (std + 0.0001)
@@ -87,8 +87,8 @@ class DynamicNormalizer(object):
 obs_norm = DynamicNormalizer(columns=env.observation_space.shape[0], N=1000)
 
 def observation_process(obs):
-    print(obs)
     obs = obs_norm.normalize(obs)
+    print(obs)
     return np.expand_dims(obs, axis=0)
 
 #observation_process = lambda x : np.expand_dims(x, axis=0)
