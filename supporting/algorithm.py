@@ -65,16 +65,19 @@ class Algorithm(object):
             counter.attach_session(self.__sess)
 
         if self.__restore:
-            try:
-                logging.debug("Attempting to restore variables")
-                latest_checkpoint = tf.train.latest_checkpoint(self._checkpoint_path)
-                self._saver.restore(sess, latest_checkpoint)
-                logging.info("Variables restored from checkpoint {}".format(latest_checkpoint))
-            except:
-                logging.warning("Variable restoration/ FAILED. Initializing variables instead.")
-                sess.run(tf.global_variables_initializer())
+            self.restore()
         else:
             sess.run(tf.global_variables_initializer())
+
+    def restore(self):
+        try:
+            logging.debug("Attempting to restore variables")
+            latest_checkpoint = tf.train.latest_checkpoint(self._checkpoint_path)
+            self._saver.restore(self.sess, latest_checkpoint)
+            logging.info("Variables restored from checkpoint {}".format(latest_checkpoint))
+        except:
+            logging.warning("Variable restoration/ FAILED. Initializing variables instead.")
+            self.sess.run(tf.global_variables_initializer())
 
         self._summary_writer = tf.summary.FileWriter(get_log_path(self._log_path, self._flags.get('name_prefix', 'run_')),
                                                      self._sess.graph, flush_secs=1)
