@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import logging
 import tensorflow as tf
 from .utility import Counter
@@ -100,11 +101,13 @@ class Algorithm(object):
         1) Increment episode counter
         """
         logging.debug("End of episode {}".format(self._sess.run(self._episode_counter.val)))
+        self._episode_end_time = time.time()
+        print("Episode wall clock duration: {}s".format(self.episode_end_time - self._episode_start_time))
         self._episode_counter.incr()
 
 
     def _start_of_episode(self):
-
+        self._episode_start_time = time.time()
         self._sess.run(self._env_step_counter.res)
         """Check to see if the 'render' file exists and set a flag"""
         if os.path.exists('./render'):
