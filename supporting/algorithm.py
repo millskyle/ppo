@@ -102,7 +102,7 @@ class Algorithm(object):
         """
         logging.debug("End of episode {}".format(self._sess.run(self._episode_counter.val)))
         self._episode_end_time = time.time()
-        print("Episode wall clock duration: {}s".format(self.episode_end_time - self._episode_start_time))
+        print("Episode wall clock duration: {}s".format(self._episode_end_time - self._episode_start_time))
         self._episode_counter.incr()
 
 
